@@ -28,9 +28,10 @@
 
 ## 数据存储位置
 
-扩展收集的数据存储在 Chrome 的本地存储中：
-- Chrome: `chrome://settings/cookies` 或 `chrome://version` 查看存储位置
-- 数据文件: `~/lover-data/browsing.json`（需要手动配置同步）
+扩展收集的数据会自动同步到：
+- `~/Downloads/lover-data/browsing.json`
+
+每隔 30 分钟自动同步一次，也可以点击扩展 popup 中的"同步数据"按钮手动同步。
 
 ## 卸载
 

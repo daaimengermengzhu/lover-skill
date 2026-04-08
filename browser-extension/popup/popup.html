@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 320px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      color: #333;
+    }
+    h1 {
+      font-size: 16px;
+      margin: 0 0 12px 0;
+      color: #1a1a1a;
+    }
+    .status {
+      background: #f5f5f5;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .status-item:last-child {
+      margin-bottom: 0;
+    }
+    .label {
+      color: #666;
+    }
+    .value {
+      font-weight: 500;
+    }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .sync-btn {
+      background: #4a90d9;
+      color: white;
+    }
+    .sync-btn:hover {
+      background: #3a7bc8;
+    }
+    .sync-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .show-btn {
+      background: #f0f0f0;
+      color: #333;
+    }
+    .show-btn:hover {
+      background: #e0e0e0;
+    }
+    .copy-btn {
+      background: #4caf50;
+      color: white;
+    }
+    .copy-btn:hover {
+      background: #45a049;
+    }
+    .data-display {
+      display: none;
+      margin-top: 12px;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 11px;
+      word-break: break-all;
+    }
+    .data-display.visible {
+      display: block;
+    }
+    .info {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+    }
+    .privacy {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <h1>Lover Skill</h1>
+
+  <div class="status">
+    <div class="status-item">
+      <span class="label">浏览记录</span>
+      <span class="value" id="record-count">0</span>
+    </div>
+    <div class="status-item">
+      <span class="label">最后同步</span>
+      <span class="value" id="last-sync">-</span>
+    </div>
+  </div>
+
+  <button class="btn sync-btn" id="sync-btn">同步数据</button>
+  <button class="btn show-btn" id="show-btn">显示数据</button>
+  <button class="btn copy-btn" id="copy-btn" style="display:none">复制数据</button>
+
+  <div class="data-display" id="data-display"></div>
+
+  <p class="info">
+    数据完全本地存储<br>
+    不上传到任何服务器
+  </p>
+
+  <p class="privacy">
+    仅记录网页 URL、标题和访问时间
+  </p>
+
+  <script src="popup.js"></script>
+</body>
+</html>

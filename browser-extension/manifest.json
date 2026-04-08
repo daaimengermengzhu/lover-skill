@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Lover Skill - 浏览记录收集",
+  "version": "1.0.0",
+  "description": "为 Lover Skill 收集浏览记录，数据完全本地存储",
+  "permissions": [
+    "tabs",
+    "storage",
+    "downloads"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html"
+  }
+}
