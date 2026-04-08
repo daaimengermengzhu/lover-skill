@@ -1,0 +1,23 @@
+# Claude Code 配置（用户私有）
+.claude/
+
+# 数据目录（用户数据，本地生成）
+data/
+reports/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 浏览器扩展图标（用户需自己创建）
+browser-extension/icons/
+
+# IDE
+.idea/
+.vswo
+*.swp
+*.swo
+
+# 日志
+*.log
+npm-debug.log*

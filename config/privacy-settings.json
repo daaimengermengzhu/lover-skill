@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "data_collection": {
+    "enabled": false,
+    "consent_given": false,
+    "consent_date": null
+  },
+  "collection_settings": {
+    "track_language_style": true,
+    "track_decision_patterns": true,
+    "track_emotional_expression": true,
+    "track_topic_preferences": true,
+    "track_interaction_behavior": true,
+    "track_browsing_preferences": true
+  },
+  "excluded_keywords": [],
+  "encryption": {
+    "enabled": true,
+    "algorithm": "AES-256-GCM"
+  },
+  "data_retention": {
+    "max_sessions": 1000,
+    "auto_cleanup_days": 365
+  },
+  "lover_settings": {
+    "gender": "female",
+    "age_range": [20, 35],
+    "name": null
+  }
+}
