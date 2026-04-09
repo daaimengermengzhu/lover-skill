@@ -1,6 +1,7 @@
 ---
 name: lover
-description: 潜意识恋人系统 — 通过问卷冷启动和真实行为分析，生成一个有 5 层人格结构的 AI 恋人。她有自己的边界、节奏和真实感，不是无限配合你的服务助手。功能：人格问卷 / 恋人生成 / 对话（跨会话记忆）/ 恋爱建议 / 人格报告。本地加密存储。
+description: 潜意识恋人系统 — 通过问卷冷启动和真实行为分析，生成一个有 5 层人格结构的 AI 恋人。她有自己的边界、节奏和真实感，不是无限配合你的服务助手。功能：人格问卷 / 恋人生成 / 对话（跨会话记忆）/ 恋爱建议 / 人格报告 / 数据导入。本地加密存储。
+allowed-tools: Read, Bash
 ---
 
 # Lover Skill — 潜意识恋人系统
@@ -202,6 +203,100 @@ Q2：在亲密关系里，你更看重什么？
 ```
 
 确认后执行删除，将 `consent_given` 重置为 `false`。
+
+---
+
+## 导入数据（增强人格分析）
+
+当用户说 `/lover import` 或提到上传聊天记录、照片等时，执行以下流程。
+
+### 方式 A：微信/QQ 聊天记录
+
+**Step 1：询问用户提供文件路径**
+
+展示：
+
+```
+📁 **导入聊天记录**
+
+支持格式：txt / html / json
+
+请提供聊天记录文件路径，例如：
+`C:\Users\xxx\Documents\聊天记录.txt`
+```
+
+**Step 2：用户提供路径后，执行解析**
+
+用 Bash 调用：
+
+```bash
+export PYTHONIOENCODING=utf-8
+python ${CLAUDE_SKILL_DIR}/tools/wechat_parser.py \
+  --file "{用户提供的路径}" \
+  --target "对方" \
+  --output /tmp/wechat_analysis.txt
+```
+
+**Step 3：读取分析结果**
+
+```bash
+Read: /tmp/wechat_analysis.txt
+```
+
+**Step 4：处理分析结果**
+
+将解析结果存入用户数据，用于增强 persona-analyzer 的人格分析。
+
+---
+
+### 方式 B：照片（分析审美偏好）
+
+**Step 1：询问用户提供文件夹路径**
+
+```
+📷 **导入照片**
+
+请提供照片文件夹路径，例如：
+`C:\Users\xxx\Pictures\相册`
+```
+
+**Step 2：用户提供路径后，执行解析**
+
+```bash
+export PYTHONIOENCODING=utf-8
+python ${CLAUDE_SKILL_DIR}/tools/photo_analyzer.py \
+  --dir "{用户提供的路径}" \
+  --output /tmp/photo_analysis.txt
+```
+
+**Step 3：读取分析结果**
+
+```bash
+Read: /tmp/photo_analysis.txt
+```
+
+**Step 4：处理分析结果**
+
+将照片分析结果（时间线、地点分布、审美偏好）存入用户数据。
+
+---
+
+### 方式 C：直接粘贴聊天记录
+
+如果用户直接粘贴聊天记录内容，用 `Read` 工具或直接分析文本内容，提取：
+- 沟通风格（简洁/中等/详细）
+- 口头禅和语气词
+- 表情包使用频率
+- 活跃时段
+
+---
+
+### 方式 D：社交媒体截图
+
+如果用户提供图片文件，用 `Read` 工具读取图片内容，分析：
+- 关注的内容类型
+- 审美偏好
+- 理想型线索
 
 ---
 
