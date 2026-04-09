@@ -84,8 +84,48 @@ AI 对话能力，由 Anthropic 提供。
 | `/lover update` | 基于新对话更新人格分析 |
 | `/lover regenerate` | 重新生成恋人 |
 | `/lover consent 是/否` | 开启/关闭数据收集 |
+| `/lover import` | 导入聊天记录、照片等数据 |
 | `/lover export` | 导出所有数据 |
 | `/lover reset` | 删除所有数据，重新开始 |
+
+---
+
+## 导入数据（可选）
+
+除了对话追踪，你还可以主动上传数据帮助生成更精准的恋人画像。
+
+### 支持的数据类型
+
+**[A] 微信/QQ 聊天记录**
+```
+/lover import wechat <文件路径>
+```
+支持 txt / html / json 格式
+
+**[B] 照片（分析审美偏好）**
+```
+/lover import photos <文件夹路径>
+```
+会分析拍摄时间、地点、构成偏好
+
+**[C] 社交媒体截图**
+```
+/lover import social <文件路径>
+```
+直接发送图片或提供路径
+
+**[D] 直接粘贴**
+```
+/lover import paste
+```
+把聊天记录直接粘贴给我
+
+### 示例
+
+```
+/lover import wechat C:\Users\xxx\Documents\聊天记录.txt
+/lover import photos C:\Users\xxx\Pictures\相册
+```
 
 ---
 

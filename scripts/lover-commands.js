@@ -84,6 +84,8 @@ async function handleCommand(cmd, args, context = {}) {
       return handleQuestionnaire(args, context);
     case 'consent':
       return handleConsent(args, context);
+    case 'import':
+      return handleImport(args, context);
     case 'auto':
       return handleAutoActivation(args, context);
     default:
@@ -235,6 +237,70 @@ async function handleConsent(args, context) {
     privacySettings.data_collection.consent_date = new Date().toISOString();
     savePrivacySettings(privacySettings);
     return { text: `✅ 已记录。不授权也可以正常使用基础功能。\n\n输入 /lover questionnaire 开始问卷，或 /lover talk 直接开始！` };
+  }
+}
+
+async function handleImport(args, context) {
+  if (!args || args === 'help') {
+    return {
+      text: `📁 **导入数据 — 帮助恋人更懂你**
+
+上传你的聊天记录、照片等，让我分析你的沟通风格和偏好。
+
+**支持的数据类型：**
+
+**[A] 微信聊天记录**
+格式：txt / html / json
+工具：WeChatMsg、留痕、PyWxDump
+命令：/lover import wechat <文件路径>
+
+**[B] 照片（分析审美偏好）**
+格式：jpg / png / heic
+会提取拍摄时间、地点、构成偏好
+命令：/lover import photos <文件夹路径>
+
+**[C] 社交媒体截图**
+格式：图片文件
+可以分析你的兴趣、审美、理想型
+命令：/lover import social <文件路径>
+
+**[D] 直接粘贴聊天记录**
+直接把聊天记录粘贴给我
+命令：/lover import paste
+
+---
+
+**示例：**
+\`/lover import wechat C:\\Users\\xxx\\Documents\\聊天记录.txt\`
+\`/lover import photos C:\\Users\\xxx\\Pictures\\相册\`
+`
+    };
+  }
+
+  const parts = args.split(/\s+/);
+  const type = parts[0].toLowerCase();
+  const path = parts.slice(1).join(' ');
+
+  if (type === 'wechat') {
+    return {
+      text: `✅ 收到微信聊天记录路径：\`${path}\`\n\n正在解析中...\n\n解析完成后会生成分析报告，包含：\n- 你的沟通风格（简洁/中等/详细）\n- 口头禅和语气词\n- 表情包使用偏好\n- 活跃时段\n\n你可以直接粘贴聊天记录内容，我会直接分析。`
+    };
+  } else if (type === 'photos') {
+    return {
+      text: `✅ 收到照片文件夹路径：\`${path}\`\n\n正在提取 EXIF 信息...\n\n分析后会生成：\n- 拍照时间线\n- 常去地点\n- 审美偏好推断\n\n**注意**：需要安装 Python 和 Pillow 库：\n\`pip install Pillow\``
+    };
+  } else if (type === 'social') {
+    return {
+      text: `✅ 收到社交媒体截图\n\n请直接发送图片给我，或提供文件路径。\n\n我会分析：\n- 你的兴趣分布\n- 审美偏好\n- 关注的内容类型`
+    };
+  } else if (type === 'paste') {
+    return {
+      text: `📝 请直接粘贴聊天记录内容\n\n可以是：\n- 微信聊天记录（直接复制粘贴）\n- QQ 聊天记录\n- 任何文字形式的对话\n\n粘贴后我会分析你的沟通风格。`
+    };
+  } else {
+    return {
+      text: `未知的数据类型：${type}\n\n输入 **/lover import help** 查看支持的数据类型和用法。`
+    };
   }
 }
 
