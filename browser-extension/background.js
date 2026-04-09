@@ -1,5 +1,6 @@
-const SYNC_INTERVAL = 30 * 60 * 1000; // 30 minutes in ms
+const SYNC_INTERVAL = 10 * 60 * 1000; // 10 minutes in ms
 const DATA_FILE = 'lover_browsing_data.json';
+const OUTPUT_FILENAME = 'lover-data/browsing.json'; // 注意：Chrome 无法自动创建子目录
 
 let browsingCache = {
   records: [],
@@ -86,28 +87,42 @@ async function syncToLocalFile() {
     [DATA_FILE]: JSON.stringify(browsingCache)
   });
 
-  // Delete existing browsing.json first to avoid "(1)" suffix
-  chrome.downloads.search({ filename: 'lover-data/browsing.json' }, (results) => {
+  // 删除已有的 browsing.json 文件（避免 Chrome 自动加 (1) 后缀）
+  chrome.downloads.search({ filename: OUTPUT_FILENAME }, (results) => {
     if (results && results.length > 0) {
       chrome.downloads.remove(results.map(r => r.id), () => {
-        console.log('[Lover Skill] Removed old file(s)');
+        console.log('[Lover Skill] 已删除旧文件');
       });
     }
   });
 
-  // Auto-download to Downloads/lover-data/browsing.json
+  // 下载到 Downloads/lover-data/browsing.json
+  // 注意：如果 lover-data 目录不存在，Chrome 会下载失败
+  // 解决方案：先尝试下载，如果失败则改用备用路径
   const jsonStr = JSON.stringify(browsingCache, null, 2);
   const dataUrl = 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(jsonStr)));
 
   chrome.downloads.download({
     url: dataUrl,
-    filename: 'lover-data/browsing.json',
+    filename: OUTPUT_FILENAME,
     saveAs: false
   }, (downloadId) => {
     if (chrome.runtime.lastError) {
-      console.log('[Lover Skill] Auto-sync error:', chrome.runtime.lastError.message);
+      console.log('[Lover Skill] 自动同步失败:', chrome.runtime.lastError.message);
+      // 备用方案：下载到根目录
+      chrome.downloads.download({
+        url: dataUrl,
+        filename: 'browsing.json',
+        saveAs: false
+      }, (backupId) => {
+        if (chrome.runtime.lastError) {
+          console.log('[Lover Skill] 备用同步也失败:', chrome.runtime.lastError.message);
+        } else {
+          console.log('[Lover Skill] 数据已同步到 Downloads/browsing.json (备用路径)');
+        }
+      });
     } else {
-      console.log('[Lover Skill] Data auto-synced to Downloads/lover-data/browsing.json, id:', downloadId);
+      console.log('[Lover Skill] 数据已同步到 Downloads/lover-data/browsing.json, id:', downloadId);
     }
   });
 }
