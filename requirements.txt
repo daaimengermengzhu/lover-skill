@@ -1,0 +1,2 @@
+# Python 依赖
+Pillow>=9.0.0  # 用于照片 EXIF 信息提取
