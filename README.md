@@ -120,8 +120,10 @@ chrome://extensions/
 
 - 自动记录浏览的网页（URL、标题、时间）
 - 追踪页面停留时长和阅读深度
-- 每 30 分钟自动同步数据
+- 每 10 分钟自动同步数据
 - 数据保存在 `~/Downloads/lover-data/browsing.json`
+
+> **注意**：首次使用扩展前，需要先在 Downloads 文件夹下创建 `lover-data` 子文件夹。Chrome 扩展无法自动创建目录，如果目录不存在会自动降级到 `~/Downloads/browsing.json`（备用路径）。
 
 ### 手动同步
 
@@ -237,7 +239,7 @@ cd %USERPROFILE%\.claude\skills\lover-skill && node scripts\auto-backup.js
 A: 打开终端窗口，看到每 5 分钟打印一次 `[AutoBackup]` 开头的日志，说明正在运行。如果日志显示"备份完成！记录数: X"，说明数据正在同步。
 
 **Q: 浏览器扩展的数据存在哪？**
-A: 浏览器扩展数据先保存在 `~/Downloads/lover-data/browsing.json`，auto-backup 每 5 分钟同步到 `~/lover-data/browsing.json`。如果浏览器扩展数据不同步，先检查 `~/Downloads/lover-data/` 目录是否有 `browsing.json` 文件。
+A: 浏览器扩展数据先保存在 `~/Downloads/lover-data/browsing.json`，auto-backup 每 5 分钟同步到 `~/lover-data/browsing.json`。<br>**重要**：首次使用前需要在 Downloads 文件夹下创建 `lover-data` 子文件夹。如果扩展图标显示同步失败，说明目录不存在，扩展会自动降级到 `~/Downloads/browsing.json`。
 
 ---
 
