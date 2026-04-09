@@ -163,7 +163,7 @@ chrome://extensions/
 
 - 自动记录浏览的网页（URL、标题、时间）
 - 追踪页面停留时长和阅读深度
-- 每 10 分钟自动同步数据
+- 每 15 分钟自动同步数据
 - 数据保存在 `~/Downloads/lover-data/browsing.json`
 
 > **注意**：首次使用扩展前，需要先在 Downloads 文件夹下创建 `lover-data` 子文件夹。Chrome 扩展无法自动创建目录，如果目录不存在会自动降级到 `~/Downloads/browsing.json`（备用路径）。
@@ -180,6 +180,8 @@ chrome://extensions/
 ### Edge 浏览器
 
 同 Chrome，访问 `edge://extensions/` 操作。
+
+> **Edge 用户注意**：Edge 会强制弹出"另存为"窗口，无法像 Chrome 那样自动下载。请在 Edge 设置中将下载目录改为 `~/Downloads/lover-data/`，并关闭"下载前询问每个文件的保存位置"，这样每次下载会自动保存到该目录。
 
 ---
 

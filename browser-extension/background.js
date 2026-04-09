@@ -1,6 +1,7 @@
 const SYNC_INTERVAL = 10 * 60 * 1000; // 10 minutes in ms
 const DATA_FILE = 'lover_browsing_data.json';
 const OUTPUT_FILENAME = 'lover-data/browsing.json'; // 注意：Chrome 无法自动创建子目录
+const ALARM_NAME = 'auto-sync';
 
 let browsingCache = {
   records: [],
@@ -10,9 +11,16 @@ let browsingCache = {
 chrome.runtime.onInstalled.addListener(() => {
   loadCache();
   console.log('[Lover Skill] Extension installed, cache loaded');
+  // 创建定时闹钟
+  chrome.alarms.create(ALARM_NAME, { periodInMinutes: 15 });
 });
 
-setInterval(syncToLocalFile, SYNC_INTERVAL);
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === ALARM_NAME) {
+    console.log('[Lover Skill] 闹钟触发，开始同步...');
+    syncToLocalFile();
+  }
+});
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url) {
