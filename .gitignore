@@ -21,3 +21,8 @@ browser-extension/icons/
 # 日志
 *.log
 npm-debug.log*
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
