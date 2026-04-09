@@ -299,4 +299,5 @@ A: 浏览器扩展数据先保存在 `~/Downloads/lover-data/browsing.json`，au
 
 ## License
 
-MIT
+CC BY-NC-SA 4.0                                                                                       
+允许个人使用和非商业目的传播，但未经同意禁止商业使用。衍生作品须使用相同许可证。
