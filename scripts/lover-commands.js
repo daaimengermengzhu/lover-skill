@@ -1,5 +1,9 @@
-// 仅保留明确的感情/恋爱词汇，避免在技术对话中误触发
-// 排除了"喜欢"、"感情"、"朋友"等在技术讨论中也常见的词
+// 仅保留明确的感情/恋爱词汇，避免在技术讨论中误触发
+const { execSync } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+
 const LOVE_KEYWORDS = [
   '恋爱', '约会', '表白', '追人', '追求',
   '男朋友', '女朋友', '男票', '女票',
@@ -8,29 +12,25 @@ const LOVE_KEYWORDS = [
   '谈恋爱', '找对象', '找个对象', '脱单', '恋人', '爱情'
 ];
 
-// 隐私设置路径
-const PRIVACY_CONFIG_PATH = require('path').join(__dirname, '..', 'config', 'privacy-settings.json');
+const PRIVACY_CONFIG_PATH = path.join(__dirname, '..', 'config', 'privacy-settings.json');
 
-// 加载隐私设置
 function loadPrivacySettings() {
   try {
-    return JSON.parse(require('fs').readFileSync(PRIVACY_CONFIG_PATH, 'utf8'));
+    return JSON.parse(fs.readFileSync(PRIVACY_CONFIG_PATH, 'utf8'));
   } catch (e) {
     return { data_collection: { consent_given: false } };
   }
 }
 
-// 保存隐私设置
 function savePrivacySettings(settings) {
   try {
-    require('fs').writeFileSync(PRIVACY_CONFIG_PATH, JSON.stringify(settings, null, 2));
+    fs.writeFileSync(PRIVACY_CONFIG_PATH, JSON.stringify(settings, null, 2));
     return true;
   } catch (e) {
     return false;
   }
 }
 
-// 检查数据收集是否授权
 function isDataCollectionAllowed() {
   const settings = loadPrivacySettings();
   return settings.data_collection?.consent_given === true;
@@ -38,18 +38,15 @@ function isDataCollectionAllowed() {
 
 function parseCommand(input) {
   const trimmed = input.trim();
-
   if (!trimmed.startsWith('/lover') && !trimmed.startsWith('lover')) {
     if (detectLoveTopic(trimmed)) {
       return { cmd: 'auto', args: trimmed };
     }
     return { cmd: null, args: input };
   }
-
   const parts = trimmed.split(/\s+/).slice(1);
   const cmd = parts[0] || 'talk';
   const args = parts.slice(1).join(' ');
-
   return { cmd, args };
 }
 
@@ -60,66 +57,47 @@ function detectLoveTopic(message) {
 
 async function handleCommand(cmd, args, context = {}) {
   switch (cmd) {
-    case 'setup':
-      return handleSetup(args, context);
-    case 'talk':
-      return handleTalk(args, context);
-    case 'report':
-      return handleReport(args, context);
-    case 'profile':
-      return handleProfile(args, context);
-    case 'advice':
-      return handleAdvice(args, context);
-    case 'update':
-      return handleUpdate(args, context);
-    case 'regenerate':
-      return handleRegenerate(args, context);
-    case 'export':
-      return handleExport(args, context);
-    case 'reset':
-      return handleReset(args, context);
-    case 'memory':
-      return handleMemory(args, context);
-    case 'questionnaire':
-      return handleQuestionnaire(args, context);
-    case 'consent':
-      return handleConsent(args, context);
-    case 'import':
-      return handleImport(args, context);
-    case 'auto':
-      return handleAutoActivation(args, context);
-    default:
-      return { text: '未知命令，请使用 /lover help 查看可用命令' };
+    case 'setup': return handleSetup(args, context);
+    case 'talk': return handleTalk(args, context);
+    case 'report': return handleReport(args, context);
+    case 'profile': return handleProfile(args, context);
+    case 'advice': return handleAdvice(args, context);
+    case 'update': return handleUpdate(args, context);
+    case 'regenerate': return handleRegenerate(args, context);
+    case 'export': return handleExport(args, context);
+    case 'reset': return handleReset(args, context);
+    case 'memory': return handleMemory(args, context);
+    case 'questionnaire': return handleQuestionnaire(args, context);
+    case 'consent': return handleConsent(args, context);
+    case 'import': return handleImport(args, context);
+    case 'auto': return handleAutoActivation(args, context);
+    default: return { text: '未知命令，请使用 /lover help 查看可用命令' };
   }
 }
 
 async function handleSetup(args) {
   const settings = parseSettings(args);
   const privacySettings = loadPrivacySettings();
-
-  // 检查是否首次使用（未设置过 consent）
-  const needsConsent = privacySettings.data_collection.consent_given === false && privacySettings.data_collection.consent_date === null;
+  const needsConsent = privacySettings.data_collection.consent_given === false &&
+                       privacySettings.data_collection.consent_date === null;
 
   if (needsConsent) {
     return {
-      text: `恋人设置已保存：\n性别: ${settings.gender === 'female' ? '女性' : '男性'}\n年龄范围: ${settings.age_range.join('-')}岁\n\n---\n\n📊 **数据收集授权**\n\n为了生成更懂你的恋人，我会分析你的对话风格、情感表达和话题偏好。这些数据只存储在本地，绝不上传。\n\n输入 **/lover consent 是** 同意授权，或 **/lover consent 否** 跳过。\n拒绝授权也可以正常使用基础功能，但无法生成详细的人格分析报告。`,
+      text: '恋人设置已保存：\n性别: ' + (settings.gender === 'female' ? '女性' : '男性') + '\n年龄范围: ' + settings.age_range.join('-') + '岁\n\n---\n\n📊 数据收集授权\n\n为了生成更懂你的恋人，我会分析你的对话风格、情感表达和话题偏好。这些数据只存储在本地，绝不上传。\n\n输入 /lover consent 是 同意授权，或 /lover consent 否 跳过。',
       settings,
       pendingConsent: true
     };
   }
 
   return {
-    text: `恋人设置已保存：\n性别: ${settings.gender === 'female' ? '女性' : '男性'}\n年龄范围: ${settings.age_range.join('-')}岁\n\n接下来会有 5 个简短的问题，帮助生成更真实的恋人。\n输入 /lover questionnaire 开始问卷，或 /lover talk 直接开始（使用默认设置）。`,
+    text: '恋人设置已保存：\n性别: ' + (settings.gender === 'female' ? '女性' : '男性') + '\n年龄范围: ' + settings.age_range.join('-') + '岁\n\n接下来会有 5 个简短的问题，帮助生成更真实的恋人。\n输入 /lover questionnaire 开始问卷，或 /lover talk 直接开始（使用默认设置）。',
     settings
   };
 }
 
 async function handleQuestionnaire(args, context) {
   const generator = require('./lover-generator');
-  return {
-    text: generator.formatQuestionnaireForDisplay(),
-    type: 'questionnaire'
-  };
+  return { text: generator.formatQuestionnaireForDisplay(), type: 'questionnaire' };
 }
 
 async function handleTalk(args, context) {
@@ -162,7 +140,7 @@ async function handleUpdate(args, context) {
   const analyzer = require('./persona-analyzer');
   const result = await analyzer.analyze();
   if (result.status === 'insufficient_data') {
-    return { text: `数据还不够，需要更多对话才能更新分析。` };
+    return { text: '数据还不够，需要更多对话才能更新分析。' };
   }
   return { text: '分析已更新！使用 /lover report 查看新报告。' };
 }
@@ -171,12 +149,9 @@ async function handleRegenerate(args) {
   const db = require('./db-manager');
   const generator = require('./lover-generator');
   const profile = db.loadUserProfile();
-  const config = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'config', 'privacy-settings.json'), 'utf8'));
-
-  // 读取之前的问卷答案（如果有）
+  const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'privacy-settings.json'), 'utf8'));
   const existingLover = db.loadLoverProfile();
   const previousAnswers = existingLover?.questionnaireAnswers || null;
-
   await generator.generate(profile || {}, config.lover_settings, previousAnswers);
   return { text: '恋人已重新生成！\n使用 /lover profile 查看新恋人档案。\n如需重新回答问卷，使用 /lover questionnaire。' };
 }
@@ -186,18 +161,17 @@ async function handleMemory(args, context) {
   const db = require('./db-manager');
   const lover = db.loadLoverProfile();
   const summary = engine.getHistorySummary();
-
   if (!lover) return { text: '你还没有生成恋人。' };
   if (!summary.memorySummary) {
-    return { text: `${lover.name} 还没有什么特别记住的事。\n多聊几次，她会慢慢记住你说过的事情。` };
+    return { text: lover.name + ' 还没有什么特别记住的事。\n多聊几次，她会慢慢记住你说过的事情。' };
   }
-
   const daysSince = summary.summaryLastUpdated
     ? Math.floor((Date.now() - new Date(summary.summaryLastUpdated)) / (1000 * 60 * 60 * 24))
     : null;
-
   return {
-    text: `## ${lover.name} 记得这些事\n\n${summary.memorySummary}\n\n---\n最后更新：${daysSince !== null ? (daysSince === 0 ? '今天' : `${daysSince} 天前`) : '未知'}\n共 ${summary.sessionCount || 0} 次对话会话 | 总计 ${summary.totalMessages} 条消息`
+    text: '## ' + lover.name + ' 记得这些事\n\n' + summary.memorySummary + '\n\n---\n最后更新：' +
+      (daysSince !== null ? (daysSince === 0 ? '今天' : daysSince + ' 天前') : '未知') +
+      '\n共 ' + (summary.sessionCount || 0) + ' 次对话会话 | 总计 ' + summary.totalMessages + ' 条消息'
   };
 }
 
@@ -214,7 +188,7 @@ async function handleReset() {
 }
 
 async function handleAutoActivation(args) {
-  return { text: `检测到恋爱话题！\n\n你想聊恋爱的事？我可以帮你分析或给建议。\n输入 /lover talk 开始，或者直接描述你的困惑。` };
+  return { text: '检测到恋爱话题！\n\n你想聊恋爱的事？我可以帮你分析或给建议。\n输入 /lover talk 开始，或者直接描述你的困惑。' };
 }
 
 async function handleConsent(args, context) {
@@ -222,85 +196,117 @@ async function handleConsent(args, context) {
   const isReject = args.includes('否') || args.includes('拒绝') || args.toLowerCase().includes('no') || args === 'n';
 
   if (!isConsent && !isReject) {
-    return { text: `请明确回复：**/lover consent 是** 同意授权，或 **/lover consent 否** 拒绝。\n\n授权后我会分析你的对话风格来生成更懂你的恋人，数据仅存储在本地。` };
+    return { text: '请明确回复：/lover consent 是 同意授权，或 /lover consent 否 拒绝。\n\n授权后我会分析你的对话风格来生成更懂你的恋人，数据仅存储在本地。' };
   }
 
   const privacySettings = loadPrivacySettings();
-
   if (isConsent) {
     privacySettings.data_collection.consent_given = true;
     privacySettings.data_collection.consent_date = new Date().toISOString();
     savePrivacySettings(privacySettings);
-    return { text: `✅ 数据收集授权已开启！\n\n感谢信任。我会分析你的对话风格、情感表达和话题偏好，这些数据只存储在本地。\n\n现在可以输入 /lover questionnaire 开始问卷，或 /lover talk 直接开始对话！` };
+    return { text: '✅ 数据收集授权已开启！\n\n感谢信任。我会分析你的对话风格、情感表达和话题偏好，这些数据只存储在本地。\n\n现在可以输入 /lover questionnaire 开始问卷，或 /lover talk 直接开始对话！' };
   } else {
     privacySettings.data_collection.consent_given = false;
     privacySettings.data_collection.consent_date = new Date().toISOString();
     savePrivacySettings(privacySettings);
-    return { text: `✅ 已记录。不授权也可以正常使用基础功能。\n\n输入 /lover questionnaire 开始问卷，或 /lover talk 直接开始！` };
+    return { text: '✅ 已记录。不授权也可以正常使用基础功能。\n\n输入 /lover questionnaire 开始问卷，或 /lover talk 直接开始！' };
   }
 }
 
 async function handleImport(args, context) {
   if (!args || args === 'help') {
     return {
-      text: `📁 **导入数据 — 帮助恋人更懂你**
-
-上传你的聊天记录、照片等，让我分析你的沟通风格和偏好。
-
-**支持的数据类型：**
-
-**[A] 微信聊天记录**
-格式：txt / html / json
-工具：WeChatMsg、留痕、PyWxDump
-命令：/lover import wechat <文件路径>
-
-**[B] 照片（分析审美偏好）**
-格式：jpg / png / heic
-会提取拍摄时间、地点、构成偏好
-命令：/lover import photos <文件夹路径>
-
-**[C] 社交媒体截图**
-格式：图片文件
-可以分析你的兴趣、审美、理想型
-命令：/lover import social <文件路径>
-
-**[D] 直接粘贴聊天记录**
-直接把聊天记录粘贴给我
-命令：/lover import paste
-
----
-
-**示例：**
-\`/lover import wechat C:\\Users\\xxx\\Documents\\聊天记录.txt\`
-\`/lover import photos C:\\Users\\xxx\\Pictures\\相册\`
-`
+      text: '📁 导入数据 — 帮助恋人更懂你\n\n支持类型：\n[A] 微信聊天记录：/lover import wechat <文件路径>\n[B] 照片文件夹：/lover import photos <文件夹路径>\n[C] 社交截图：/lover import social <文件路径>\n[D] 直接粘贴：/lover import paste\n\n示例：\n/lover import wechat C:\\Users\\xxx\\Documents\\聊天记录.txt\n/lover import photos C:\\Users\\xxx\\Pictures\\相册'
     };
   }
 
   const parts = args.split(/\s+/);
   const type = parts[0].toLowerCase();
-  const path = parts.slice(1).join(' ');
+  const filePath = parts.slice(1).join(' ');
 
   if (type === 'wechat') {
-    return {
-      text: `✅ 收到微信聊天记录路径：\`${path}\`\n\n正在解析中...\n\n解析完成后会生成分析报告，包含：\n- 你的沟通风格（简洁/中等/详细）\n- 口头禅和语气词\n- 表情包使用偏好\n- 活跃时段\n\n你可以直接粘贴聊天记录内容，我会直接分析。`
-    };
+    return handleWechatImport(filePath);
   } else if (type === 'photos') {
-    return {
-      text: `✅ 收到照片文件夹路径：\`${path}\`\n\n正在提取 EXIF 信息...\n\n分析后会生成：\n- 拍照时间线\n- 常去地点\n- 审美偏好推断\n\n**注意**：需要安装 Python 和 Pillow 库：\n\`pip install Pillow\``
-    };
+    return handlePhotosImport(filePath);
   } else if (type === 'social') {
-    return {
-      text: `✅ 收到社交媒体截图\n\n请直接发送图片给我，或提供文件路径。\n\n我会分析：\n- 你的兴趣分布\n- 审美偏好\n- 关注的内容类型`
-    };
+    return { text: '收到社交媒体截图路径：' + filePath + '\n\n直接发图片给我，我会分析你的兴趣和审美偏好。' };
   } else if (type === 'paste') {
-    return {
-      text: `📝 请直接粘贴聊天记录内容\n\n可以是：\n- 微信聊天记录（直接复制粘贴）\n- QQ 聊天记录\n- 任何文字形式的对话\n\n粘贴后我会分析你的沟通风格。`
-    };
+    return { text: '📝 请直接粘贴聊天记录内容。可以是微信/QQ聊天记录，或任何文字对话。粘贴后我会分析你的沟通风格。' };
   } else {
-    return {
-      text: `未知的数据类型：${type}\n\n输入 **/lover import help** 查看支持的数据类型和用法。`
-    };
+    return { text: '未知的数据类型：' + type + '。输入 /lover import help 查看用法。' };
+  }
+}
+
+async function handleWechatImport(filePath) {
+  if (!filePath) {
+    return { text: '请提供聊天记录文件路径，例如：\n/lover import wechat C:\\Users\\xxx\\Documents\\聊天记录.txt' };
+  }
+  if (!fs.existsSync(filePath)) {
+    return { text: '文件不存在：' + filePath };
+  }
+
+  const skillDir = path.join(__dirname, '..');
+  const outputPath = path.join(os.tmpdir(), 'wechat_analysis_' + Date.now() + '.txt');
+
+  try {
+    const cmd = 'python "' + path.join(skillDir, 'tools', 'wechat_parser.py') + '" --file "' + filePath + '" --target "对方" --output "' + outputPath + '"';
+    execSync(cmd, { encoding: 'utf8', timeout: 30000 });
+
+    if (!fs.existsSync(outputPath)) {
+      return { text: '解析失败，未能生成分析结果。' };
+    }
+
+    const result = fs.readFileSync(outputPath, 'utf8').trim();
+    fs.unlinkSync(outputPath);
+
+    saveImportedData('wechat', { analysis: result, sourceFile: filePath, importedAt: new Date().toISOString() });
+
+    return { text: '✅ 微信聊天记录解析完成！\n\n**分析结果：**\n\n' + result + '\n\n---\n这份分析已存入你的画像，恋人会据此更懂你。' };
+  } catch (e) {
+    return { text: '解析失败：' + e.message + '\n\n请确认：\n1. 已安装 Python 3\n2. 文件格式为 txt / html / json\n\n也可以直接粘贴聊天记录给我分析。' };
+  }
+}
+
+async function handlePhotosImport(dirPath) {
+  if (!dirPath) {
+    return { text: '请提供照片文件夹路径，例如：\n/lover import photos C:\\Users\\xxx\\Pictures\\相册' };
+  }
+  if (!fs.existsSync(dirPath)) {
+    return { text: '文件夹不存在：' + dirPath };
+  }
+
+  const skillDir = path.join(__dirname, '..');
+  const outputPath = path.join(os.tmpdir(), 'photo_analysis_' + Date.now() + '.txt');
+
+  try {
+    const cmd = 'python "' + path.join(skillDir, 'tools', 'photo_analyzer.py') + '" --dir "' + dirPath + '" --output "' + outputPath + '"';
+    execSync(cmd, { encoding: 'utf8', timeout: 60000 });
+
+    if (!fs.existsSync(outputPath)) {
+      return { text: '分析失败，未能生成结果。' };
+    }
+
+    const result = fs.readFileSync(outputPath, 'utf8').trim();
+    fs.unlinkSync(outputPath);
+
+    saveImportedData('photos', { analysis: result, sourceDir: dirPath, importedAt: new Date().toISOString() });
+
+    return { text: '✅ 照片分析完成！\n\n**分析结果：**\n\n' + result + '\n\n---\n分析结果已存入你的画像。' };
+  } catch (e) {
+    return { text: '分析失败：' + e.message + '\n\n请确认：\n1. 已安装 Python 3\n2. 已安装 Pillow：pip install Pillow\n3. 文件夹中有 jpg/png/heic 格式照片\n\n不需要把所有照片发给我，发几张有代表性的就行。' };
+  }
+}
+
+function saveImportedData(type, data) {
+  try {
+    const db = require('./db-manager');
+    const profile = db.loadUserProfile() || {};
+    profile.importedData = profile.importedData || {};
+    profile.importedData[type] = data;
+    profile.importedAt = new Date().toISOString();
+    db.saveUserProfile(profile);
+  } catch (e) {
+    console.log('[handleImport] 保存导入数据失败:', e.message);
   }
 }
 
