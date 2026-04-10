@@ -149,6 +149,7 @@ const SUBCATEGORY_TO_MAIN = {
   video_knowledge: 'knowledge',
   video_anime: 'anime',
   short_video: 'video',
+  pet_content: 'entertainment',
   anime: 'anime',
   movie: 'movie',
   tv_show: 'video',
@@ -289,7 +290,8 @@ function analyzeTitle(title, interests, weight = 1) {
   if (matchAny(lowerTitle, ['电影', '影评', '解说', '电影解说', '好莱坞', '国产电影'])) add('movie', 2);
   if (matchAny(lowerTitle, ['综艺', '选秀', '偶像', '追星', '演唱会'])) add('entertainment', 2);
   if (matchAny(lowerTitle, ['电视剧', '追剧', '韩剧', '美剧', '国产剧'])) add('tv_drama', 2);
-  if (matchAny(lowerTitle, ['短视频', 'vlog', '生活记录', '日常分享'])) add('short_video', 1);
+  if (matchAny(lowerTitle, ['短视频', 'vlog', '生活记录', '日常分享', 'bilibili', '哔哩', 'b站'])) add('short_video', 1);
+  if (matchAny(lowerTitle, ['猫', '狗', '宠物', '撸猫', '猫猫', '喵星人', '吸猫'])) add('pet_content', 2);
 
   // ===== 审美偏好 =====
   if (matchAny(lowerTitle, ['御姐', '熟女', '气质', '御姐音', '大长腿'])) add('mature_feminine', 2);

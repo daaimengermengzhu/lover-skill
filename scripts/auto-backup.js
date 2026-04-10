@@ -20,17 +20,34 @@ let lastSyncTime = null;
 let lastAnalysisTime = null;
 
 function findBestDownloadsPath() {
+  // 扫描所有 downloads/lover-data*/browsing*.json 文件（Chrome 会自动加 (1)(2) 后缀）
+  const searchDirs = [
+    path.join(process.env.HOME || process.env.USERPROFILE, 'Downloads', 'lover-data'),
+    path.join(process.env.HOME || process.env.USERPROFILE, 'Downloads', 'lover-data', 'lover-data')
+  ];
+
   let best = null;
   let bestTime = null;
-  for (const p of DOWNLOADS_BROWSING_PATHS) {
+
+  for (const dir of searchDirs) {
     try {
-      if (fs.existsSync(p)) {
-        const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-        const t = data.last_sync ? new Date(data.last_sync) : null;
-        if (t && (!bestTime || t > bestTime)) {
-          bestTime = t;
-          best = p;
-        }
+      if (!fs.existsSync(dir)) continue;
+      const files = fs.readdirSync(dir)
+        .filter(f => f.startsWith('browsing') && f.endsWith('.json') && !f.startsWith('~$'))
+        .map(f => path.join(dir, f));
+
+      for (const p of files) {
+        try {
+          const stat = fs.statSync(p);
+          // 过滤掉 62 字节的空文件
+          if (stat.size < 200) continue;
+          const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const t = data.last_sync ? new Date(data.last_sync) : null;
+          if (t && (!bestTime || t > bestTime)) {
+            bestTime = t;
+            best = p;
+          }
+        } catch (e) {}
       }
     } catch (e) {}
   }
