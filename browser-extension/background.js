@@ -9,11 +9,57 @@ let browsingCache = {
 };
 
 chrome.runtime.onInstalled.addListener(() => {
-  loadCache();
-  console.log('[Lover Skill] Extension installed, cache loaded');
-  // 创建定时闹钟
+  loadCache().then(() => {
+    console.log('[Lover Skill] Extension installed, cache loaded, records:', browsingCache.records.length);
+  });
+  // 创建定时闹钟（alarms 在浏览器重启后依然有效，setInterval 会失效）
   chrome.alarms.create(ALARM_NAME, { periodInMinutes: 15 });
 });
+
+// 浏览器启动时（service worker 首次启动）：尝试从 Downloads 文件恢复数据
+chrome.runtime.onStartup.addListener(() => {
+  console.log('[Lover Skill] Service worker starting up after browser launch');
+  // loadCache() 内部会在 storage 为空时触发恢复
+  loadCache().then(() => {
+    console.log('[Lover Skill] Loaded cache, records:', browsingCache.records.length);
+  });
+});
+
+// 使用 Chrome Downloads API 读取上次下载的文件来恢复数据（异步，不阻塞）
+async function recoverFromDownloads() {
+  try {
+    // 查找最近一次下载的 lover-data/browsing.json
+    const results = await new Promise(resolve => {
+      chrome.downloads.search({
+        filename: 'lover-data/browsing.json',
+        limit: 5
+      }, resolve);
+    });
+    if (!results || results.length === 0) return;
+
+    // 按时间倒序，取最新的一个有实际内容的文件
+    const candidates = results
+      .filter(r => r.filePath && r.bytesReceived > 200) // 过滤掉62字节的空文件
+      .sort((a, b) => b.startTime.localeCompare(a.startTime));
+    if (candidates.length === 0) return;
+
+    const latest = candidates[0];
+    console.log('[Lover Skill] 尝试从文件恢复:', latest.filePath, latest.bytesReceived, 'bytes');
+
+    // 读取文件内容（Chrome 扩展可以通过 file:// 访问下载目录的文件）
+    const response = await fetch(`file://${latest.filePath}`);
+    if (!response.ok) return;
+    const text = await response.text();
+    const data = JSON.parse(text);
+    if (data.records && data.records.length > 0) {
+      browsingCache = data;
+      await chrome.storage.local.set({ [DATA_FILE]: JSON.stringify(browsingCache) });
+      console.log('[Lover Skill] ✅ 已从 Downloads 恢复', browsingCache.records.length, '条浏览记录');
+    }
+  } catch (e) {
+    console.log('[Lover Skill] 从 Downloads 恢复失败:', e.message);
+  }
+}
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_NAME) {
@@ -70,15 +116,22 @@ function extractDomain(url) {
   }
 }
 
-function loadCache() {
-  chrome.storage.local.get([DATA_FILE], (result) => {
-    if (result[DATA_FILE]) {
-      try {
-        browsingCache = JSON.parse(result[DATA_FILE]);
-      } catch (e) {
-        browsingCache = { records: [], last_sync: null };
+async function loadCache() {
+  return new Promise(resolve => {
+    chrome.storage.local.get([DATA_FILE], async (result) => {
+      if (result[DATA_FILE]) {
+        try {
+          browsingCache = JSON.parse(result[DATA_FILE]);
+        } catch (e) {
+          browsingCache = { records: [], last_sync: null };
+        }
       }
-    }
+      // storage 为空时（浏览器重启后），从 Downloads 文件恢复
+      if (browsingCache.records.length === 0) {
+        await recoverFromDownloads();
+      }
+      resolve();
+    });
   });
 }
 
@@ -90,6 +143,13 @@ function saveCache() {
 }
 
 async function syncToLocalFile() {
+  // 关键保护：如果缓存为空（浏览器刚重启），不下载文件，避免覆盖真实数据
+  // 等待用户开始浏览后，真实数据会重新积累，届时再同步
+  if (browsingCache.records.length === 0) {
+    console.log('[Lover Skill] 缓存为空，跳过文件同步（等待数据积累）');
+    return;
+  }
+
   browsingCache.last_sync = new Date().toISOString();
   await chrome.storage.local.set({
     [DATA_FILE]: JSON.stringify(browsingCache)
