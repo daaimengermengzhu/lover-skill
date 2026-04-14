@@ -498,7 +498,7 @@ class PersonaAnalyzer {
     const avgWords = data.totalWords / Math.max(data.totalMessages, 1);
 
     let style;
-    if (avgWords > 50 && m.totalQuestions > 5) {
+    if (avgWords > 50 && data.totalQuestions > 5) {
       style = 'detailed_expressive';
     } else if (avgWords < 20 && m.totalCommands > 5) {
       style = 'direct_efficient';

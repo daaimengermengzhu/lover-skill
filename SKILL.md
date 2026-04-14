@@ -81,37 +81,42 @@ allowed-tools: Read, Bash
 
 设置完成后，**不要直接生成恋人**，先运行问卷。问卷答案会影响恋人的 5 层 Persona 结构。
 
-调用 `scripts/lover-generator.js` 的 `formatQuestionnaireForDisplay()` 获取问卷格式，展示给用户。
+### 流程 A：一次性回答（推荐）
 
-**问卷展示示例：**
+用户可以直接用 `/lover answer` 一次提交所有答案：
 
 ```
-在生成你的 AI 恋人之前，先回答几个问题
-
-（每题直接说选项数字，或者用自己的话描述也行）
-
-Q1：你们更可能用哪种方式聊天？
-1. 发长消息，什么都说清楚
-2. 发短消息，简洁来回
-3. 发语音，随兴
-4. 混搭，看心情
-
-Q2：在亲密关系里，你更看重什么？
-...（以此类推）
-
----
-按顺序回答，或者说"跳过"直接生成默认恋人。
+/lover answer 2 1 2 3 4
 ```
 
-收到用户的回答后：
-1. 调用 `generator.parseQuestionnaireAnswers()` 解析答案（支持选项数字或文字描述）
-2. 将解析结果作为 `questionnaireAnswers` 传入 `generator.generate()`
-3. 展示生成的恋人档案（调用 `formatLoverProfile()`）
+或者用文字描述：
+
+```
+/lover answer 简洁来回 被理解 先冷静 弹性的 记住我说过的事
+```
+
+系统会自动调用 `parseQuestionnaireAnswers()` 解析答案，然后调用 `generate()` 生成恋人并展示档案。
+
+### 流程 B：先看题再答
+
+1. 用户输入 `/lover questionnaire`，展示 5 道题目
+2. 用户看完题目后，用 `/lover answer` 提交答案
+3. 如果用户说"跳过"，则使用默认设置生成
+
+### 流程 C：对话中收集（AI 侧引导）
+
+如果用户不使用命令，而是在对话中逐题回答，你（Claude）应该：
+
+1. 逐题展示问卷（调用 `formatQuestionnaireForDisplay()`）
+2. 收集用户的 5 个回答，整理为 `{q1: '回答1', q2: '回答2', ...}` 格式
+3. 调用 `generator.parseQuestionnaireAnswers(rawAnswers)` 解析
+4. 将解析结果作为 `questionnaireAnswers` 传入 `generator.generate()`
+5. 展示生成的恋人档案（调用 `formatLoverProfile()`）
 
 **展示格式：**
 
 ```
-遇见了
+✨ 遇见了
 
 [展示恋人档案]
 
@@ -123,6 +128,7 @@ Q2：在亲密关系里，你更看重什么？
 随着你使用 Claude Code，系统会逐渐更了解你。
 使用 /lover update 更新分析，/lover report 查看人格报告。
 ```
+
 
 ---
 

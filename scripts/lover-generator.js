@@ -587,21 +587,21 @@ ${lover.background}
 - 职业：${p.layer1?.occupation || lover.occupation}
 - 兴趣：${(lover.interests || []).join('、')}
 
-**她是什么人**
+**${genderText}是什么人**
 ${p.layer1?.background || lover.background}
 
 **在一起是什么感觉**
 ${p.layer3?.expressLove || '会用行动表达在乎'}
-她最在乎：${priorities || '被理解、有陪伴'}
+${genderText}最在乎：${priorities || '被理解、有陪伴'}
 
 **说话方式**
 ${p.layer2?.style || '自然直接'}
 ${p.layer2?.emojiStyle ? `Emoji：${p.layer2.emojiStyle}` : ''}
 
-**她的行为准则（让你更了解她）**
+**${genderText}的行为准则（让你更了解${genderText}）**
 ${layer0Display}
 
-**她不喜欢**
+**${genderText}不喜欢**
 ${(p.layer4?.dislikes || []).map(d => `- ${d}`).join('\n')}
 
 ---
@@ -705,7 +705,7 @@ ${lover.loveStyle?.description}
   }
 
   randomAge(range) {
-    return range[0] + Math.floor(Math.random() * (range[1] - range[0]));
+    return range[0] + Math.floor(Math.random() * (range[1] - range[0] + 1));
   }
 }
 

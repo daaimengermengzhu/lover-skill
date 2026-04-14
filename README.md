@@ -281,10 +281,10 @@ cd %USERPROFILE%\.claude\skills\lover-skill && node scripts\auto-backup.js
 保持窗口开着即可。也可以创建一个快捷方式方便下次一键启动。
 
 **Q: 怎么确认自动备份在正常工作？**
-A: 打开终端窗口，看到每 5 分钟打印一次 `[AutoBackup]` 开头的日志，说明正在运行。如果日志显示"备份完成！记录数: X"，说明数据正在同步。
+A: 打开终端窗口，看到打印 `[AutoBackup]` 开头的日志，说明正在运行。如果日志显示"备份完成！记录数: X"，说明数据正在同步。自动备份每 12 小时扫描一次新数据。
 
 **Q: 浏览器扩展的数据存在哪？**
-A: 浏览器扩展数据先保存在 `~/Downloads/lover-data/browsing.json`，auto-backup 每 5 分钟同步到 `~/lover-data/browsing.json`。<br>**重要**：首次使用前需要在 Downloads 文件夹下创建 `lover-data` 子文件夹。如果扩展图标显示同步失败，说明目录不存在，扩展会自动降级到 `~/Downloads/browsing.json`。
+A: 浏览器扩展数据先保存在 `~/Downloads/lover-data/browsing.json`，auto-backup 每 12 小时同步到 `~/lover-data/browsing.json`。<br>**重要**：首次使用前需要在 Downloads 文件夹下创建 `lover-data` 子文件夹。如果扩展图标显示同步失败，说明目录不存在，扩展会自动降级到 `~/Downloads/browsing.json`。
 
 ---
 

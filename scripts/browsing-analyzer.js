@@ -127,7 +127,8 @@ function classifyWebsite(url) {
           return subcat;
         }
       }
-      return 'other';
+      // 路径不匹配时，继续尝试主分类（而非直接返回 'other'）
+      break;
     }
   }
 

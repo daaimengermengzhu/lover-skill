@@ -30,7 +30,7 @@ def parse_txt_wechat(content, target):
         if match:
             if current_msg:
                 messages.append(current_msg)
-            time_str, sender, msg = match.groups()
+            time_str, _, sender, msg = match.groups()
             sender = sender.strip()
             msg = msg.strip()
             if sender == target or target == "all":

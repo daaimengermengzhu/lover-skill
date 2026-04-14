@@ -68,9 +68,11 @@ async function handleCommand(cmd, args, context = {}) {
     case 'reset': return handleReset(args, context);
     case 'memory': return handleMemory(args, context);
     case 'questionnaire': return handleQuestionnaire(args, context);
+    case 'answer': return handleAnswer(args, context);
     case 'consent': return handleConsent(args, context);
     case 'import': return handleImport(args, context);
     case 'auto': return handleAutoActivation(args, context);
+    case 'help': return handleHelp();
     default: return { text: '未知命令，请使用 /lover help 查看可用命令' };
   }
 }
@@ -78,6 +80,16 @@ async function handleCommand(cmd, args, context = {}) {
 async function handleSetup(args) {
   const settings = parseSettings(args);
   const privacySettings = loadPrivacySettings();
+
+  // 将用户设置持久化到 privacy-settings.json
+  privacySettings.lover_settings = {
+    ...privacySettings.lover_settings,
+    gender: settings.gender,
+    age_range: settings.age_range,
+    name: settings.name || privacySettings.lover_settings?.name || null
+  };
+  savePrivacySettings(privacySettings);
+
   const needsConsent = privacySettings.data_collection.consent_given === false &&
                        privacySettings.data_collection.consent_date === null;
 
@@ -97,7 +109,80 @@ async function handleSetup(args) {
 
 async function handleQuestionnaire(args, context) {
   const generator = require('./lover-generator');
-  return { text: generator.formatQuestionnaireForDisplay(), type: 'questionnaire' };
+
+  // 如果附带了答案（如 /lover questionnaire 2 1 2 3 4），直接解析并生成
+  const answerParts = (args || '').trim().split(/[\s,，]+/).filter(Boolean);
+  if (answerParts.length >= 3) {
+    return handleAnswer(args, context);
+  }
+
+  // 否则展示问卷题目
+  const display = generator.formatQuestionnaireForDisplay();
+  return {
+    text: display + '\n\n💡 **回答方式**：\n' +
+      '• 直接回复 5 个数字，如：`/lover answer 2 1 2 3 4`\n' +
+      '• 或者用自己的话描述，如：`/lover answer 简洁来回 被理解 先冷静 弹性的 记住我说过的事`\n' +
+      '• 或者说"跳过"直接生成默认恋人',
+    type: 'questionnaire'
+  };
+}
+
+async function handleAnswer(args, context) {
+  const generator = require('./lover-generator');
+  const db = require('./db-manager');
+
+  if (!args || args.trim() === '' || args.trim() === '跳过') {
+    // 跳过问卷，用默认设置生成
+    const config = loadPrivacySettings();
+    const profile = db.loadUserProfile() || {};
+    const lover = await generator.generate(profile, config.lover_settings, null);
+    return {
+      text: '✨ 遇见了\n\n' + generator.formatLoverProfile(lover) +
+        '\n\n现在可以直接跟 ' + lover.name + ' 聊天了。\n' +
+        '`/lover talk` 开始对话 | `/lover profile` 查看档案'
+    };
+  }
+
+  // 解析答案：支持“2 1 2 3 4” 或 “简洁来回 被理解 先冷静 弹性的 记住我说过的事”
+  const parts = args.trim().split(/[\s,，]+/).filter(Boolean);
+  const rawAnswers = {};
+  const keys = ['q1', 'q2', 'q3', 'q4', 'q5'];
+
+  parts.forEach((val, i) => {
+    if (i < 5) {
+      rawAnswers[keys[i]] = val;
+    }
+  });
+
+  const parsedAnswers = generator.parseQuestionnaireAnswers(rawAnswers);
+
+  // 检查解析结果
+  const parsedCount = Object.keys(parsedAnswers).length;
+  if (parsedCount === 0) {
+    return {
+      text: '❌ 无法解析你的答案。请用数字或关键词回答，例如：\n' +
+        '`/lover answer 2 1 2 3 4`\n' +
+        '`/lover answer 简洁来回 被理解 先冷静 弹性的 记住我说过的事`\n\n' +
+        '或输入 `/lover answer 跳过` 使用默认设置。'
+    };
+  }
+
+  // 生成恋人
+  const config = loadPrivacySettings();
+  const profile = db.loadUserProfile() || {};
+  const lover = await generator.generate(profile, config.lover_settings, parsedAnswers);
+
+  const answeredQuestions = Object.entries(parsedAnswers)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(' | ');
+
+  return {
+    text: '✨ 遇见了\n\n' +
+      '📝 问卷解析（' + parsedCount + '/5 题）：' + answeredQuestions + '\n\n' +
+      generator.formatLoverProfile(lover) +
+      '\n\n现在可以直接跟 ' + lover.name + ' 聊天了。\n' +
+      '`/lover talk` 开始对话 | `/lover profile` 查看档案'
+  };
 }
 
 async function handleTalk(args, context) {
@@ -178,17 +263,53 @@ async function handleMemory(args, context) {
 async function handleExport() {
   const db = require('./db-manager');
   const data = db.exportAllData();
-  return { text: '数据已导出。', data };
+  const exportDir = path.join(__dirname, '..', 'data');
+  if (!fs.existsSync(exportDir)) fs.mkdirSync(exportDir, { recursive: true });
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const exportPath = path.join(exportDir, `export_${timestamp}.json`);
+  fs.writeFileSync(exportPath, JSON.stringify(data, null, 2), 'utf8');
+  return { text: '数据已导出到：\n' + exportPath, data };
 }
 
-async function handleReset() {
+async function handleReset(args) {
+  // 需要二次确认
+  if (!args || !args.includes('确认删除')) {
+    return {
+      text: '⚠️ 确定要删除所有数据吗？这将清除：\n• 你的人格分析数据\n• 恋人档案和对话记忆\n• 所有对话历史\n\n输入 `/lover reset 确认删除` 继续，或忽略取消。'
+    };
+  }
   const db = require('./db-manager');
   db.resetAllData();
+  const privacySettings = loadPrivacySettings();
+  privacySettings.data_collection.consent_given = false;
+  privacySettings.data_collection.consent_date = null;
+  savePrivacySettings(privacySettings);
   return { text: '所有数据已删除。使用 /lover setup 重新设置。' };
 }
 
 async function handleAutoActivation(args) {
   return { text: '检测到恋爱话题！\n\n你想聊恋爱的事？我可以帮你分析或给建议。\n输入 /lover talk 开始，或者直接描述你的困惑。' };
+}
+
+function handleHelp() {
+  return {
+    text: '## Lover Skill 命令帮助\n\n' +
+      '| 命令 | 功能 |\n|------|------|\n' +
+      '| `/lover setup` | 首次设置（性别、年龄范围、名字） |\n' +
+      '| `/lover questionnaire` | 5 题问卷，影响恋人性格 |\n' +
+      '| `/lover talk [消息]` | 和恋人聊天 |\n' +
+      '| `/lover profile` | 查看恋人档案 |\n' +
+      '| `/lover advice <情况>` | 获得恋爱建议 |\n' +
+      '| `/lover memory` | 查看恋人记住的事 |\n' +
+      '| `/lover report` | 人格分析报告 |\n' +
+      '| `/lover update` | 更新人格分析 |\n' +
+      '| `/lover regenerate` | 重新生成恋人 |\n' +
+      '| `/lover import` | 导入聊天记录/照片 |\n' +
+      '| `/lover export` | 导出所有数据 |\n' +
+      '| `/lover consent 是/否` | 开启/关闭数据收集 |\n' +
+      '| `/lover reset` | 删除所有数据 |\n' +
+      '| `/lover help` | 显示本帮助 |'
+  };
 }
 
 async function handleConsent(args, context) {

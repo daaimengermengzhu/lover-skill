@@ -14,6 +14,19 @@
 const db = require('./db-manager');
 const loverGenerator = require('./lover-generator');
 const tracker = require('./behavior-tracker');
+const fs = require('fs');
+const path = require('path');
+
+// 检查用户是否同意数据收集
+function isConsentGiven() {
+  try {
+    const configPath = path.join(__dirname, '..', 'config', 'privacy-settings.json');
+    const settings = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    return settings.data_collection?.consent_given === true;
+  } catch (e) {
+    return false;
+  }
+}
 
 class ConversationEngine {
   constructor() {
@@ -149,8 +162,10 @@ ${lover.name}：`;
     this.conversationHistory.push(userEntry);
     this.currentSessionMessages.push(userEntry);
 
-    // 追踪用户消息的语言风格、情感、话题等（用于人格分析）
-    tracker.trackMessage(userEntry);
+    // 追踪用户消息的语言风格、情感、话题等（仅在用户同意数据收集时）
+    if (isConsentGiven()) {
+      tracker.trackMessage(userEntry);
+    }
 
     // 保持历史长度
     if (this.conversationHistory.length > this.maxHistoryLength) {
@@ -166,8 +181,10 @@ ${lover.name}：`;
       this.conversationHistory.push(loverEntry);
       this.currentSessionMessages.push(loverEntry);
 
-      // 追踪恋人回复（分析互动模式）
-      tracker.trackMessage(loverEntry);
+      // 追踪恋人回复（仅在用户同意数据收集时）
+      if (isConsentGiven()) {
+        tracker.trackMessage(loverEntry);
+      }
 
       // 持久化保存历史
       db.saveConversationHistory(this.conversationHistory);
@@ -176,7 +193,9 @@ ${lover.name}：`;
       if (this.currentSessionMessages.length % 12 === 0) {
         this.generateSessionSummary(lover, apiFunction).catch(() => {});
         // 每 6 轮也保存一次会话数据（供 persona-analyzer 分析）
-        tracker.endSession();
+        if (isConsentGiven()) {
+          tracker.endSession();
+        }
       }
 
       return { error: false, response, loverName: lover.name };
@@ -282,8 +301,10 @@ ${JSON.stringify(profile, null, 2)}
     if (!lover || this.currentSessionMessages.length < 3) return;
     await this.generateSessionSummary(lover, apiFunction).catch(() => {});
     this.currentSessionMessages = []; // 清空当前会话缓存
-    // 保存会话数据供人格分析使用
-    tracker.endSession();
+    // 保存会话数据供人格分析使用（仅在用户同意时）
+    if (isConsentGiven()) {
+      tracker.endSession();
+    }
   }
 
   // 清除对话历史

@@ -61,6 +61,12 @@ class BehaviorTracker {
 
     // 交互模式
     this.analyzeInteraction(msg);
+
+    // 决策模式（犹豫、回避等）
+    this.trackDecision(message);
+
+    // 情感表达（开心、难过、焦虑等）
+    this.trackEmotionalExpression(message);
   }
 
   analyzeLanguage(text) {
