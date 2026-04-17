@@ -97,17 +97,17 @@ class LoverGenerator {
   // 核心生成函数（5 层 Persona 架构）
   // ─────────────────────────────────────────────────────────────────
 
-  async generate(userProfile, settings, questionnaireAnswers = null) {
-    const gender = settings?.gender || 'female';
+  async generate(userProfile, settings, questionnaireAnswers = null, existingLover = null) {
+    const gender = existingLover?.gender || settings?.gender || 'female';
     const ageRange = settings?.age_range || [20, 35];
-    const savedName = settings?.name;
+    const savedName = existingLover?.name || settings?.name;
 
     // 基础信息
     const name = savedName || this.randomPick(gender === 'female' ? this.femaleNames : this.maleNames);
-    const age = this.randomAge(ageRange);
-    const occupation = this.pickOccupation(userProfile, gender);
-    const interests = this.pickInterests(userProfile);
-    const background = this.pickBackground(userProfile);
+    const age = existingLover?.age || this.randomAge(ageRange);
+    const occupation = existingLover?.occupation || this.pickOccupation(userProfile, gender);
+    const interests = existingLover?.interests || this.pickInterests(userProfile);
+    const background = existingLover?.background || this.pickBackground(userProfile);
 
     // 5 层 Persona
     const persona = {

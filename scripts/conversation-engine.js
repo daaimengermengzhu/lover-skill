@@ -258,7 +258,19 @@ ${lover.name}：`;
     const profile = db.loadUserProfile();
 
     if (!profile) {
-      return { error: true, message: '还没有足够的数据生成分析报告。请继续使用一段时间。' };
+      return { error: true, message: '还没有足够的数据生成分析报告。请先运行 `/lover update`（基于已有对话+浏览数据分析）或继续使用一段时间。' };
+    }
+
+    // 在纯 CLI / 无 LLM 的环境下降级为结构化输出，避免报错
+    if (typeof apiFunction !== 'function') {
+      const formatter = require('./profile-formatter');
+      const structured = formatter.formatProfileStructured(profile);
+      return {
+        error: false,
+        report: structured + '\n\n> 提示：当前不在 Claude 会话里，已降级为结构化输出。在 Claude 会话里说「看看我的人格报告」可以拿到温暖版长篇解读。',
+        profile,
+        fallback: true
+      };
     }
 
     const reportPrompt = `# 任务：生成用户潜意识人格分析报告

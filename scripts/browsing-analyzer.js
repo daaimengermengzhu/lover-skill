@@ -95,18 +95,28 @@ const SUBCATEGORY_PATTERNS = {
 };
 
 // 主分类模式
+// 每个模式是对象 { host: <子串>, path?: <子串> }，path 可选
+// 之前是一些 'host/path' 这样的混合字符串，但区配只检查 hostname.includes()，导致用 '/' 连起的模式永远 match 不上
 const CATEGORY_PATTERNS = {
-  video: ['bilibili.com', 'youtube.com', 'douyin.com', 'iqiyi.com', 'tencent.com/video', 'youku.com'],
-  knowledge: ['zhihu.com', 'jianshu.com', 'douban.com', 'wikipedia.org', 'wiki', 'baike.baidu.com'],
-  gaming: ['store.steampowered.com', 'steamcommunity.com', 'wegame.com', 'epicgames.com', 'gamer.com.tw'],
-  social: ['weibo.com', 'xiaohongshu.com', 'twitter.com', 'instagram.com', 'reddit.com', 'weixin.qq.com'],
-  shopping: ['taobao.com', 'jd.com', 'pinduoduo.com', 'amazon.cn', 'tmall.com', 'suning.com'],
-  news: ['36kr.com', 'ifeng.com', 'thepaper.cn', 'huxiu.com', 'news.sina.com.cn', 'qq.com/news'],
-  tech: ['github.com', 'juejin.cn', 'segmentfault.com', 'stackoverflow.com', 'csdn.net', 'iteye.com'],
-  novel: ['qidian.com', 'jinjiang.com', 'read78.com', 'penguin.com', 'shubaowen.com'],
-  finance: ['xueqiu.com', 'eastmoney.com', '.sina.com.cn/finance', 'tonghuashun.com'],
-  sports: ['hupu.com', 'sports.qq.com', 'zhibo8.cc', 'dongqiudi.com']
+  video: [{ host: 'bilibili.com' }, { host: 'youtube.com' }, { host: 'douyin.com' }, { host: 'iqiyi.com' }, { host: 'v.qq.com' }, { host: 'youku.com' }, { host: 'tencent.com', path: '/video' }],
+  knowledge: [{ host: 'zhihu.com' }, { host: 'jianshu.com' }, { host: 'douban.com' }, { host: 'wikipedia.org' }, { host: 'wiki' }, { host: 'baike.baidu.com' }],
+  gaming: [{ host: 'store.steampowered.com' }, { host: 'steamcommunity.com' }, { host: 'wegame.com' }, { host: 'epicgames.com' }, { host: 'gamer.com.tw' }],
+  social: [{ host: 'weibo.com' }, { host: 'xiaohongshu.com' }, { host: 'twitter.com' }, { host: 'instagram.com' }, { host: 'reddit.com' }, { host: 'weixin.qq.com' }],
+  shopping: [{ host: 'taobao.com' }, { host: 'jd.com' }, { host: 'pinduoduo.com' }, { host: 'amazon.cn' }, { host: 'tmall.com' }, { host: 'suning.com' }],
+  news: [{ host: '36kr.com' }, { host: 'ifeng.com' }, { host: 'thepaper.cn' }, { host: 'huxiu.com' }, { host: 'news.sina.com.cn' }, { host: 'news.qq.com' }],
+  tech: [{ host: 'github.com' }, { host: 'juejin.cn' }, { host: 'segmentfault.com' }, { host: 'stackoverflow.com' }, { host: 'csdn.net' }, { host: 'iteye.com' }],
+  novel: [{ host: 'qidian.com' }, { host: 'jinjiang.com' }, { host: 'read78.com' }, { host: 'penguin.com' }, { host: 'shubaowen.com' }],
+  finance: [{ host: 'xueqiu.com' }, { host: 'eastmoney.com' }, { host: 'tonghuashun.com' }, { host: 'finance.sina.com.cn' }],
+  sports: [{ host: 'hupu.com' }, { host: 'sports.qq.com' }, { host: 'zhibo8.cc' }, { host: 'dongqiudi.com' }]
 };
+
+function matchesCategoryPattern(hostname, pathname, patterns) {
+  return patterns.some(p => {
+    if (!hostname.includes(p.host)) return false;
+    if (p.path && !pathname.includes(p.path)) return false;
+    return true;
+  });
+}
 
 function classifyWebsite(url) {
   let hostname;
@@ -134,7 +144,7 @@ function classifyWebsite(url) {
 
   // 回退到主分类
   for (const [category, patterns] of Object.entries(CATEGORY_PATTERNS)) {
-    if (patterns.some(p => hostname.includes(p))) {
+    if (matchesCategoryPattern(hostname, pathname, patterns)) {
       return category;
     }
   }

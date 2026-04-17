@@ -64,6 +64,8 @@ async function handleCommand(cmd, args, context = {}) {
     case 'advice': return handleAdvice(args, context);
     case 'update': return handleUpdate(args, context);
     case 'regenerate': return handleRegenerate(args, context);
+    case 'whoami': return handleWhoami(args, context);
+    case 'persona': return handleWhoami(args, context);
     case 'export': return handleExport(args, context);
     case 'reset': return handleReset(args, context);
     case 'memory': return handleMemory(args, context);
@@ -73,7 +75,7 @@ async function handleCommand(cmd, args, context = {}) {
     case 'import': return handleImport(args, context);
     case 'auto': return handleAutoActivation(args, context);
     case 'help': return handleHelp();
-    default: return { text: '未知命令，请使用 /lover help 查看可用命令' };
+    default: return { text: '未知命令，请使用 `/lover help` 查看可用命令' };
   }
 }
 
@@ -192,7 +194,10 @@ async function handleTalk(args, context) {
   }
   const engine = require('./conversation-engine');
   const result = await engine.generateResponse(args, apiFunction);
-  if (result.error) return { text: '你还没有生成恋人，请先运行 /lover setup 完成初始设置。' };
+  if (result.error) {
+    // 将引擎的具体错误信息传出去，方便定位问题
+    return { text: result.message || '无法生成回复。' };
+  }
   return { text: result.response, loverName: result.loverName };
 }
 
@@ -223,21 +228,56 @@ async function handleAdvice(args, context) {
 
 async function handleUpdate(args, context) {
   const analyzer = require('./persona-analyzer');
+  const db = require('./db-manager');
+  const formatter = require('./profile-formatter');
+
+  const before = db.loadUserProfile();
   const result = await analyzer.analyze();
+
   if (result.status === 'insufficient_data') {
-    return { text: '数据还不够，需要更多对话才能更新分析。' };
+    return { text: '数据还不够：' + result.message + '\n\n可以尝试：`/lover talk` 多聊几次，或等浏览器插件继续收集浏览数据。' };
   }
-  return { text: '分析已更新！使用 /lover report 查看新报告。' };
+
+  const after = db.loadUserProfile();
+  const diffText = formatter.formatProfileDiff(before, after);
+  const sourceLine = `基于 ${result.sessionCount || 0} 个对话会话 + ${result.browsingCount || 0} 条浏览记录。`;
+
+  return { text: '✅ 分析已更新\n\n' + sourceLine + '\n\n' + diffText };
+}
+
+async function handleWhoami(args, context) {
+  const db = require('./db-manager');
+  const analyzer = require('./persona-analyzer');
+  const formatter = require('./profile-formatter');
+  const aggregator = require('./data-aggregator');
+
+  let profile = db.loadUserProfile();
+
+  // 若画像不存在，自动触发一次分析（基于已有浏览/对话数据）
+  if (!profile) {
+    const result = await analyzer.analyze();
+    if (result.status === 'insufficient_data') {
+      const readiness = aggregator.getDataReadiness();
+      return {
+        text: '还没有画像。\n\n' + result.message +
+          `\n\n当前数据：${readiness.stats.totalSessions} 个对话会话 · ${readiness.browsingCount} 条浏览记录。` +
+          '\n\n先聊几次（`/lover talk`）或等插件继续同步浏览数据，再运行 `/lover update`。'
+      };
+    }
+    profile = db.loadUserProfile();
+  }
+
+  return { text: formatter.formatProfileStructured(profile) };
 }
 
 async function handleRegenerate(args) {
   const db = require('./db-manager');
   const generator = require('./lover-generator');
   const profile = db.loadUserProfile();
-  const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'privacy-settings.json'), 'utf8'));
+  const config = loadPrivacySettings();
   const existingLover = db.loadLoverProfile();
   const previousAnswers = existingLover?.questionnaireAnswers || null;
-  await generator.generate(profile || {}, config.lover_settings, previousAnswers);
+  await generator.generate(profile || {}, config.lover_settings, previousAnswers, existingLover);
   return { text: '恋人已重新生成！\n使用 /lover profile 查看新恋人档案。\n如需重新回答问卷，使用 /lover questionnaire。' };
 }
 
@@ -301,8 +341,9 @@ function handleHelp() {
       '| `/lover profile` | 查看恋人档案 |\n' +
       '| `/lover advice <情况>` | 获得恋爱建议 |\n' +
       '| `/lover memory` | 查看恋人记住的事 |\n' +
-      '| `/lover report` | 人格分析报告 |\n' +
-      '| `/lover update` | 更新人格分析 |\n' +
+      '| `/lover whoami` | 查看你的人格快照（离线结构化） |\n' +
+      '| `/lover report` | 人格分析报告（温暖版，需 Claude 会话） |\n' +
+      '| `/lover update` | 更新人格分析，并显示本次变化 |\n' +
       '| `/lover regenerate` | 重新生成恋人 |\n' +
       '| `/lover import` | 导入聊天记录/照片 |\n' +
       '| `/lover export` | 导出所有数据 |\n' +
@@ -433,9 +474,21 @@ function saveImportedData(type, data) {
 
 function parseSettings(args) {
   const settings = { gender: 'female', age_range: [20, 35] };
+  if (!args) return settings;
+
   if (args.includes('male') || args.includes('男')) settings.gender = 'male';
   const ageMatch = args.match(/(\d{2})-(\d{2})/);
   if (ageMatch) settings.age_range = [parseInt(ageMatch[1]), parseInt(ageMatch[2])];
+
+  // 提取名字：剩下的中文字符串（已移除 male/男/女/年龄段）
+  const cleaned = args
+    .replace(/male|female|男生|女生|男|女/gi, '')
+    .replace(/\d{2}-\d{2}/g, '')
+    .trim();
+  // 只取中文、英文、数字组成的 token，长度 2-8
+  const nameMatch = cleaned.match(/[\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9]{1,7}/);
+  if (nameMatch) settings.name = nameMatch[0];
+
   return settings;
 }
 

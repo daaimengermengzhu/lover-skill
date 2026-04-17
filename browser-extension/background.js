@@ -155,33 +155,25 @@ async function syncToLocalFile() {
     [DATA_FILE]: JSON.stringify(browsingCache)
   });
 
-  // 删除已有的 browsing.json 文件（避免 Chrome 自动加 (1) 后缀）
-  chrome.downloads.search({ filename: OUTPUT_FILENAME }, (results) => {
-    if (results && results.length > 0) {
-      chrome.downloads.remove(results.map(r => r.id), () => {
-        console.log('[Lover Skill] 已删除旧文件');
-      });
-    }
-  });
-
-  // 下载到 Downloads/lover-data/browsing.json
-  // 注意：如果 lover-data 目录不存在，Chrome 会下载失败
-  // 解决方案：先尝试下载，如果失败则改用备用路径
+  // 注意：chrome.downloads.remove 只会清除下载历史，并不会删除实际文件；
+  // 正确的去重方式是下载时显式指定 conflictAction: 'overwrite'，让 Chrome 覆盖同名文件。
   const jsonStr = JSON.stringify(browsingCache, null, 2);
   const dataUrl = 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(jsonStr)));
 
   chrome.downloads.download({
     url: dataUrl,
     filename: OUTPUT_FILENAME,
-    saveAs: false
+    saveAs: false,
+    conflictAction: 'overwrite'
   }, (downloadId) => {
     if (chrome.runtime.lastError) {
       console.log('[Lover Skill] 自动同步失败:', chrome.runtime.lastError.message);
-      // 备用方案：下载到根目录
+      // 备用方案：下载到 Downloads 根目录
       chrome.downloads.download({
         url: dataUrl,
         filename: 'browsing.json',
-        saveAs: false
+        saveAs: false,
+        conflictAction: 'overwrite'
       }, (backupId) => {
         if (chrome.runtime.lastError) {
           console.log('[Lover Skill] 备用同步也失败:', chrome.runtime.lastError.message);

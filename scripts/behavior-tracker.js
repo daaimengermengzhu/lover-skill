@@ -77,11 +77,11 @@ class BehaviorTracker {
     const words = text.split(/\s+/).filter(w => w.length > 0);
     metrics.totalWords += words.length;
 
-    // 问题检测
-    if (text.includes('?')) metrics.questionCount++;
+    // 问题检测（中英文标点均计数）
+    if (text.includes('?') || text.includes('？')) metrics.questionCount++;
 
-    // 感叹词检测
-    if (text.includes('!')) metrics.exclamationCount++;
+    // 感叹词检测（中英文标点均计数）
+    if (text.includes('!') || text.includes('！')) metrics.exclamationCount++;
 
     // Emoji 检测
     const emojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu;
@@ -174,7 +174,7 @@ class BehaviorTracker {
     }
 
     // 澄清请求
-    if (text.includes('什么意思') || text.includes('怎么') || text.includes('为什么') || text.includes('?)')) {
+    if (text.includes('什么意思') || text.includes('怎么') || text.includes('为什么') || text.includes('?') || text.includes('？')) {
       metrics.clarificationsRequested++;
     }
   }

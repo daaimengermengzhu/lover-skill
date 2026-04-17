@@ -13,6 +13,46 @@ allowed-tools: Read, Bash
 - 男朋友、女朋友、男票、女票、恋人
 - 暧昧、前任、分手、复合、相亲、找对象、脱单
 
+另外，以下自我认知类提问也应激活本 skill（处理方式见下一节）：
+- 你了解我多少、你知道我什么、说说我是什么样的人
+- 我的画像、我的人格、人格报告、人格更新、人格分析
+- 看看我、分析我、最近更新了什么
+
+---
+
+## 自然语言意图优先级（重要）
+
+当用户用自然语言询问涉及「自己被了解的程度 / 画像 / 人格 / 最近更新了什么」等问题时——
+典型措辞：「你了解我多少」「你知道我什么」「看看我的画像/人格/分析」「最近更新了什么」
+「我的人格报告」「帮我看看我是什么样的人」「我在恋爱里是什么样子」。
+
+**必须先这样做，而不是直接建议 `/lover setup`：**
+
+1. 用 Bash 读取已有画像：
+
+   ```bash
+   node -e "console.log(JSON.stringify(require('./scripts/db-manager.js').loadUserProfile()))"
+   ```
+
+2. **如果输出非 null**（画像已存在）：
+   - 优先以「离线结构化」形式展示。你可以直接调用 `/lover whoami`（你在内心模拟其逻辑：调用 `scripts/profile-formatter.js` 的 `formatProfileStructured(profile)` 并展示）。
+   - 展示后补一句：「想要温暖版详细解读？运行 `/lover report`。」
+   - **不要**把自己在当前会话里的即时观察（例如「你表达直接」）当成正式画像输出。那只是观察，不是 profile。
+
+3. **如果输出是 null**（画像不存在），再用 Bash 读取数据就绪度：
+
+   ```bash
+   node -e "console.log(JSON.stringify(require('./scripts/data-aggregator').getDataReadiness()))"
+   ```
+
+   - 若 `browsingCount >= 10` 或 `stats.totalSessions >= 3` → 引导用户运行 `/lover update`（会基于现有数据生成画像）。
+   - 若数据有但 `consent_given: false` → 提示先 `/lover consent 是` 然后 `/lover update`。
+   - 若完全无数据 → 才引导 `/lover setup`。
+
+**反模式（不要做）：**
+- 用户问「你了解我多少」就直接列出整套新用户流程，让他从 `/lover setup` 开始。这会让已经有画像的用户觉得系统没保存任何东西。
+- 跳过读 profile 这一步，全凭当前会话的聊天内容总结他的人格。当前会话只是观察窗口，user_profile 才是记录在案的画像。
+
 ---
 
 ## 首次使用 — 引导流程
@@ -136,9 +176,9 @@ allowed-tools: Read, Bash
 
 ### `/lover talk [消息]`
 
-1. 读取恋人档案（`data/lovers/generated_lover.json.enc`）
+1. **不可直接用工具读取 enc 文件**。请使用 Bash 运行：`node -e "console.log(JSON.stringify(require('./scripts/db-manager.js').loadLoverProfile()))"` 获取解密后的恋人档案。
 2. 如果恋人不存在 → 引导用户先运行 `/lover setup`
-3. 调用 `conversation-engine.js` 的 `generateResponse(message, apiFunction)`
+3. 调用 `conversation-engine.js` 的 `generateResponse(message, apiFunction)`（在心中模拟代码逻辑进行回答）
 4. 对话风格要求：
    - **遵守恋人的 Layer 0 规则**（这是最高优先级）
    - 像真实的人在发消息，不要 AI 感
@@ -152,11 +192,22 @@ allowed-tools: Read, Bash
 [恋人名字]：[自然对话内容]
 ```
 
+### `/lover whoami`（或 `/lover persona`）
+
+1. **离线结构化画像，不调用 LLM**。使用 Bash 运行：
+
+   ```bash
+   node -e "require('./scripts/lover-commands').handleCommand('whoami','').then(r=>console.log(r.text))"
+   ```
+2. 会输出：分析时间 / 数据来源（会话数、浏览数）、Big Five 进度条 + 描述、依恋类型、爱情语言、沟通风格、Top 兴趣、主导域名、价值观排序、隐藏偏好（理想型 / 生活方式）。
+3. 若画像不存在，命令会自动尝试运行一次分析；仍然不足→ 引导 `/lover update` 或 `/lover setup`。
+
 ### `/lover report`
 
-1. 读取用户画像（`data/profiles/user_profile.json.enc`）
-2. 如果画像不存在 → 提示"还需要更多对话才能生成报告，当前数据量不足。先用几天，再来看看。"
-3. 调用 `engine.generateReport(apiFunction)` 生成温暖友好的分析报告
+1. **不可直接用工具读取 enc 文件**。请使用 Bash 运行：`node -e "console.log(JSON.stringify(require('./scripts/db-manager.js').loadUserProfile()))"` 获取解密后的画像。
+2. 如果画像不存在 → 提示用户先运行 `/lover update`（基于已有对话+浏览数据分析）或继续使用一段时间。
+3. 在 Claude 会话里调用 `engine.generateReport(apiFunction)`（apiFunction 即当前 LLM）生成温暖友好的长篇报告。
+4. **在纯 CLI / 无 apiFunction 的环境下**，`generateReport` 会自动降级为结构化输出（复用 `/lover whoami` 的渲染器），不会报错。想要温暖版必须在 Claude 会话里触发。
 
 ### `/lover profile`
 
@@ -170,26 +221,24 @@ allowed-tools: Read, Bash
 
 ### `/lover update`
 
-1. 触发 `persona-analyzer.js` 的 `analyze()` 分析已有会话数据
-2. 如果数据不足（< 3 个会话）→ 告知进度，比如"目前收集了 X/3 个会话的数据"
-3. 分析完成后，询问是否重新生成恋人以更好匹配
+1. **必须使用 Bash 运行：** `node -e "require('./scripts/lover-commands').handleCommand('update', '').then(function(r){console.log(r.text)})"`
+2. 这会同时基于 **对话会话 + 浏览记录**（只要其一达到门槛：对话≥3 或 浏览≥10）更新画像。浏览数据会先被 `data-aggregator` 合并去重。
+3. 返回文本含 **“本次更新了什么” 差异摘要**（Big Five 维度的分值变化、兴趣新上榜/跌出榜、主导域名变化等）。
+4. 分析完成后，询问是否重新生成恋人以更好匹配（引导运行 `/lover regenerate`）。
 
 ### `/lover regenerate`
 
-基于最新的用户画像重新生成恋人，会保留设置中的性别、年龄和名字偏好，**并重新触发问卷**（用户可以回答新的或跳过复用旧答案）。
+1. **必须使用 Bash 运行：** `node -e "require('./scripts/lover-commands').handleCommand('regenerate', '').then(function(r){console.log(r.text)})"`
+2. 告知用户恋人已重新生成，底层的身份（名字、年龄等）已被保留，但内心的风格（Layer2-Layer4）已随最新画像更新。
 
 ### `/lover memory`
 
 显示恋人"记住的事情"摘要（调用 `engine.getHistorySummary()`），让用户看到跨会话记忆的内容：
 
-```
-[名字] 记得这些事：
-
 [摘要内容]
 
 最后更新：X 天前
 共 X 次对话会话
-```
 
 ### `/lover export`
 

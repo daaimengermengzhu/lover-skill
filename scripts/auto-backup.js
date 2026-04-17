@@ -1,58 +1,21 @@
 /**
  * auto-backup.js - 后台自动备份与同步脚本
- * 每5分钟检查Downloads中的浏览数据，自动备份到本地并触发人格分析
+ * 定时检查 Downloads 中的浏览数据，合并到本地并（有 API key 时）触发人格分析。
+ * 运行方式：直接 `node scripts/auto-backup.js`（会驻留后台）。
+ * 不应被其他模块 require；如果要手动触发一次合并，请用 data-aggregator.loadBrowsingData()。
  */
 
 const fs = require('fs');
 const path = require('path');
+const dataAggregator = require('./data-aggregator');
 
-// 检查两个可能的下载路径（扩展可能嵌套创建目录）
-const DOWNLOADS_BROWSING_PATHS = [
-  path.join(process.env.HOME || process.env.USERPROFILE, 'Downloads', 'lover-data', 'browsing.json'),
-  path.join(process.env.HOME || process.env.USERPROFILE, 'Downloads', 'lover-data', 'lover-data', 'browsing.json')
-];
-const LOCAL_BROWSING_PATH = path.join(process.env.HOME || process.env.USERPROFILE, 'lover-data', 'browsing.json');
-const HISTORY_DIR = path.join(process.env.HOME || process.env.USERPROFILE, 'lover-data', 'history');
+const LOCAL_BROWSING_PATH = dataAggregator.BROWSING_FILE_PATH;
+const HISTORY_DIR = path.join(path.dirname(LOCAL_BROWSING_PATH), 'history');
 const CHECK_INTERVAL = 12 * 60 * 60 * 1000; // 每12小时扫描一次
 const ANALYSIS_INTERVAL = 24 * 60 * 60 * 1000; // 每天最多分析一次
 
 let lastSyncTime = null;
 let lastAnalysisTime = null;
-
-function findBestDownloadsPath() {
-  // 扫描所有 downloads/lover-data*/browsing*.json 文件（Chrome 会自动加 (1)(2) 后缀）
-  const searchDirs = [
-    path.join(process.env.HOME || process.env.USERPROFILE, 'Downloads', 'lover-data'),
-    path.join(process.env.HOME || process.env.USERPROFILE, 'Downloads', 'lover-data', 'lover-data')
-  ];
-
-  let best = null;
-  let bestTime = null;
-
-  for (const dir of searchDirs) {
-    try {
-      if (!fs.existsSync(dir)) continue;
-      const files = fs.readdirSync(dir)
-        .filter(f => f.startsWith('browsing') && f.endsWith('.json') && !f.startsWith('~$'))
-        .map(f => path.join(dir, f));
-
-      for (const p of files) {
-        try {
-          const stat = fs.statSync(p);
-          // 过滤掉 62 字节的空文件
-          if (stat.size < 200) continue;
-          const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-          const t = data.last_sync ? new Date(data.last_sync) : null;
-          if (t && (!bestTime || t > bestTime)) {
-            bestTime = t;
-            best = p;
-          }
-        } catch (e) {}
-      }
-    } catch (e) {}
-  }
-  return best;
-}
 
 function getLocalLastSync() {
   try {
@@ -66,58 +29,24 @@ function getLocalLastSync() {
 
 function checkAndBackup() {
   try {
-    const downloadsPath = findBestDownloadsPath();
-    if (!downloadsPath) {
+    // 使用 data-aggregator 的合并逻辑：扫描所有 browsing*.json、按 URL 去重
+    // loadBrowsingData 内部会自动把合并结果写回 LOCAL_BROWSING_PATH + history
+    const before = getLocalLastSync();
+    const merged = dataAggregator.loadBrowsingData();
+
+    if (!merged.records || merged.records.length === 0) {
       return false;
     }
 
-    const downloadsData = JSON.parse(fs.readFileSync(downloadsPath, 'utf8'));
-    const downloadsSyncTime = downloadsData.last_sync ? new Date(downloadsData.last_sync) : null;
+    const after = merged.last_sync ? new Date(merged.last_sync) : null;
+    const changed = !before || (after && after.getTime() > before.getTime());
 
-    // 过滤空数据（62字节的空文件）
-    if (!downloadsData.records || downloadsData.records.length === 0) {
-      return false;
+    if (changed) {
+      console.log('[AutoBackup] 合并完成，去重后记录数:', merged.records.length);
+      lastSyncTime = after;
+      return true;
     }
-
-    // 检查是否有新数据
-    if (!downloadsSyncTime) return false;
-    if (lastSyncTime && downloadsSyncTime.getTime() <= lastSyncTime.getTime()) {
-      return false; // 没有新数据
-    }
-
-    console.log('[AutoBackup] 发现新数据，记录数:', downloadsData.records.length, '来源:', path.basename(path.dirname(downloadsPath)));
-
-    // 确保目录存在
-    const localDir = path.dirname(LOCAL_BROWSING_PATH);
-    if (!fs.existsSync(localDir)) {
-      fs.mkdirSync(localDir, { recursive: true });
-    }
-    if (!fs.existsSync(HISTORY_DIR)) {
-      fs.mkdirSync(HISTORY_DIR, { recursive: true });
-    }
-
-    // 保存历史版本
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const historyFile = path.join(HISTORY_DIR, `browsing_${timestamp}.json`);
-    fs.writeFileSync(historyFile, JSON.stringify(downloadsData, null, 2), 'utf8');
-    console.log('[AutoBackup] 历史备份已保存:', path.basename(historyFile));
-
-    // 清理旧历史（保留10份）
-    const historyFiles = fs.readdirSync(HISTORY_DIR)
-      .filter(f => f.startsWith('browsing_') && f.endsWith('.json'))
-      .sort()
-      .reverse();
-    historyFiles.slice(10).forEach(f => {
-      fs.unlinkSync(path.join(HISTORY_DIR, f));
-    });
-
-    // 保存最新
-    fs.writeFileSync(LOCAL_BROWSING_PATH, JSON.stringify(downloadsData, null, 2), 'utf8');
-    lastSyncTime = downloadsSyncTime;
-
-    console.log('[AutoBackup] 备份完成! 记录数:', downloadsData.records?.length || 0);
-    return true;
-
+    return false;
   } catch (e) {
     console.log('[AutoBackup] 备份失败:', e.message);
     return false;
@@ -154,21 +83,18 @@ async function triggerAnalysis() {
   }
 }
 
-// 启动
-console.log('[AutoBackup] 自动备份服务已启动，每12小时扫描一次，每天最多分析一次');
-lastSyncTime = getLocalLastSync();
-console.log('[AutoBackup] 本地最新同步时间:', lastSyncTime || '无');
+// 仅当作为主脚本直接运行时才启动定时器，避免被别的模块 require 时触发副作用
+if (require.main === module) {
+  console.log('[AutoBackup] 自动备份服务已启动，每 12 小时扫描一次，每 24 小时最多分析一次');
+  lastSyncTime = getLocalLastSync();
+  console.log('[AutoBackup] 本地最新同步时间:', lastSyncTime || '无');
 
-// 立即检查一次（扫描，但不主动分析）
-const hasNew = checkAndBackup();
-console.log('[AutoBackup] 扫描完成，下次扫描12小时后');
-
-// 定时扫描
-setInterval(() => {
+  // 立即扫描一次（不主动分析）
   checkAndBackup();
-}, CHECK_INTERVAL);
+  console.log('[AutoBackup] 扫描完成，下次扫描 12 小时后');
 
-// 独立分析定时器（每天一次，与扫描独立）
-setInterval(() => {
-  triggerAnalysis();
-}, ANALYSIS_INTERVAL);
+  setInterval(() => { checkAndBackup(); }, CHECK_INTERVAL);
+  setInterval(() => { triggerAnalysis(); }, ANALYSIS_INTERVAL);
+}
+
+module.exports = { checkAndBackup, triggerAnalysis };

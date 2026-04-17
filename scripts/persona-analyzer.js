@@ -37,27 +37,36 @@ class PersonaAnalyzer {
   // 主分析函数
   async analyze() {
     const sessions = db.loadAllSessions();
+    const browsingData = this.loadBrowsingProfile();
+    const browsingCount = browsingData?.totalRecords || 0;
 
-    if (sessions.length < 3) {
+    // 允许两种数据源之一达标即可运行分析：
+    //  - 对话 ≥ 3 场（语言层面的人格信号）
+    //  - 浏览 ≥ 10 条去重记录（兴趣与生活方式信号）
+    if (sessions.length < 3 && browsingCount < 10) {
       return {
         status: 'insufficient_data',
-        message: `当前只有 ${sessions.length} 个会话，至少需要 3 个会话才能生成准确的人格分析。请继续使用一段时间。`,
-        readiness: sessions.length / 3
+        message: `当前只有 ${sessions.length} 个对话会话和 ${browsingCount} 条浏览记录。至少需要 3 个对话会话、或 10 条浏览记录，才能生成人格分析。`,
+        readiness: Math.max(sessions.length / 3, browsingCount / 10)
       };
     }
 
-    // 聚合对话数据 + 加载浏览数据
+    // 聚合对话数据（即使为空也返回合法结构）
     const aggregatedData = this.aggregateSessions(sessions);
-    const browsingData = this.loadBrowsingProfile();
-
     const profile = this.buildProfile(aggregatedData, sessions.length, browsingData);
 
-    // 保存分析结果
+    // 标记数据来源，便于调试
+    profile.dataSources = {
+      conversationSessions: sessions.length,
+      browsingRecords: browsingCount
+    };
+
     db.saveUserProfile(profile);
     db.saveReport({
       type: 'persona_analysis',
       generatedAt: new Date().toISOString(),
       sessionCount: sessions.length,
+      browsingCount,
       profile
     });
 
@@ -65,7 +74,9 @@ class PersonaAnalyzer {
       status: 'complete',
       profile,
       readiness: 1,
-      browsingDataLoaded: !!browsingData
+      browsingDataLoaded: !!browsingData,
+      browsingCount,
+      sessionCount: sessions.length
     };
   }
 
@@ -416,12 +427,15 @@ class PersonaAnalyzer {
       '科技/数码': 'technology'
     };
 
-    let base = sortedTopics.map(t => topicToValue[t] || t);
+    // 只保留能映射到标准 value key 的 topic，避免画像里混入中文原 key
+    let base = sortedTopics
+      .map(t => topicToValue[t])
+      .filter(Boolean);
 
     // 浏览数据补充：按浏览时长加权的分类优先级
     if (browsingData && browsingData.categories) {
       const browsingValues = this.browsingCategoriesToValues(browsingData.categories);
-      // 合并：对话优先度 + 浏览兴趣，浏览优先级较高的排在前面
+      // 合并：对话优先度 + 浏览兴趣，去重
       browsingValues.forEach(v => {
         if (!base.includes(v)) base.push(v);
       });

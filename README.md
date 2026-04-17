@@ -23,11 +23,11 @@ AI 对话能力，由 Anthropic 提供。
 - 核心功能免费使用（有限制），Pro 用户无限制
 - 没有账号或多账号切换：https://github.com/farion1231/cc-switch
 
-### Node.js（可选，运行测试需要）
+### Node.js（必需）
 
-用于本地运行测试脚本。
+skill 内部的所有 `/lover` 命令都依赖 Node.js 执行脚本。没装 Node.js 运行命令时会报错。
 
-- 下载：https://nodejs.org/ （选择 LTS 版本）
+- 下载：https://nodejs.org/ （选择 LTS 版本，≥ 18）
 - 安装后在命令行运行 `node --version` 验证
 
 ### Chrome/Edge 浏览器（可选，浏览器扩展需要）
@@ -80,8 +80,9 @@ AI 对话能力，由 Anthropic 提供。
 | `/lover profile` | 查看恋人完整档案（5 层人格结构） |
 | `/lover advice <情况>` | 针对具体情境获得建议 |
 | `/lover memory` | 查看恋人记住了你哪些事 |
-| `/lover report` | 查看你的人格分析报告 |
-| `/lover update` | 基于新对话更新人格分析 |
+| `/lover whoami` | 快速查看你的人格快照（离线结构化，不需要 LLM） |
+| `/lover report` | 查看你的人格分析报告（温暖版，需 Claude 会话） |
+| `/lover update` | 基于对话+浏览数据更新分析，并显示本次变化 |
 | `/lover regenerate` | 重新生成恋人 |
 | `/lover consent 是/否` | 开启/关闭数据收集 |
 | `/lover export` | 导出所有数据 |
@@ -281,10 +282,10 @@ cd %USERPROFILE%\.claude\skills\lover-skill && node scripts\auto-backup.js
 保持窗口开着即可。也可以创建一个快捷方式方便下次一键启动。
 
 **Q: 怎么确认自动备份在正常工作？**
-A: 打开终端窗口，看到打印 `[AutoBackup]` 开头的日志，说明正在运行。如果日志显示"备份完成！记录数: X"，说明数据正在同步。自动备份每 12 小时扫描一次新数据。
+A: 打开终端窗口，看到打印 `[AutoBackup]` 开头的日志，说明正在运行。如果日志显示"[AutoBackup] 合并完成，去重后记录数: X"，说明数据正在同步。自动备份每 12 小时扫描一次新数据，每 24 小时最多调用一次分析（有 API key 时）。
 
 **Q: 浏览器扩展的数据存在哪？**
-A: 浏览器扩展数据先保存在 `~/Downloads/lover-data/browsing.json`，auto-backup 每 12 小时同步到 `~/lover-data/browsing.json`。<br>**重要**：首次使用前需要在 Downloads 文件夹下创建 `lover-data` 子文件夹。如果扩展图标显示同步失败，说明目录不存在，扩展会自动降级到 `~/Downloads/browsing.json`。
+A: 浏览器扩展数据先保存在 `~/Downloads/lover-data/browsing.json`。由于 Chrome 早期不能覆盖同名文件（会生成 `browsing (1).json` 等副本），auto-backup 和 `/lover update` 会自动扫描该目录下所有 `browsing*.json` 文件，按 URL 去重合并到 `~/lover-data/browsing.json`。最新版扩展用 `conflictAction: 'overwrite'` 直接覆盖，不再产生副本。<br>**重要**：首次使用前需要在 Downloads 文件夹下创建 `lover-data` 子文件夹。如果扩展图标显示同步失败，说明目录不存在，扩展会自动降级到 `~/Downloads/browsing.json`。
 
 ---
 

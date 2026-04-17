@@ -35,8 +35,9 @@
 | `/lover profile` | 查看她的完整档案（5 层人格结构） |
 | `/lover advice <情况>` | 针对具体情境获得建议 |
 | `/lover memory` | 查看她记住了你哪些事情 |
-| `/lover report` | 查看你的人格分析报告（需要积累一定对话） |
-| `/lover update` | 基于新对话数据更新分析 |
+| `/lover whoami` | 快速查看你的人格快照（Big Five、兴趣、浏览主导域），不需要 LLM 调用 |
+| `/lover report` | 查看你的人格分析报告（温暖版，需 Claude 会话；纯 CLI 下降级为结构化输出） |
+| `/lover update` | 基于对话+浏览数据更新分析，并显示本次更新了什么 |
 | `/lover regenerate` | 重新生成恋人（保留性别/名字设置） |
 | `/lover export` | 导出所有数据 |
 | `/lover reset` | 删除所有数据，重新开始 |
