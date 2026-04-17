@@ -5,6 +5,11 @@
 data/
 reports/
 
+# 私人配置（含 consent_date 和 lover name 等个人字段）
+# 使用 config/privacy-settings.example.json 作为模板，首次运行会自动复制
+config/privacy-settings.json
+config/privacy-settings.json.backup
+
 # 系统文件
 .DS_Store
 Thumbs.db

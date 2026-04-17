@@ -13,12 +13,20 @@ const LOVE_KEYWORDS = [
 ];
 
 const PRIVACY_CONFIG_PATH = path.join(__dirname, '..', 'config', 'privacy-settings.json');
+const PRIVACY_EXAMPLE_PATH = path.join(__dirname, '..', 'config', 'privacy-settings.example.json');
 
 function loadPrivacySettings() {
+  // 本地无配置时从 example 模板复制一份（用于全新 clone 的用户）
+  if (!fs.existsSync(PRIVACY_CONFIG_PATH) && fs.existsSync(PRIVACY_EXAMPLE_PATH)) {
+    try { fs.copyFileSync(PRIVACY_EXAMPLE_PATH, PRIVACY_CONFIG_PATH); } catch (e) {}
+  }
   try {
     return JSON.parse(fs.readFileSync(PRIVACY_CONFIG_PATH, 'utf8'));
   } catch (e) {
-    return { data_collection: { consent_given: false } };
+    return {
+      data_collection: { consent_given: false },
+      lover_settings: { gender: 'female', age_range: [20, 35] }
+    };
   }
 }
 
