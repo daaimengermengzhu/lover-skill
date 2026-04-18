@@ -249,9 +249,126 @@ function formatProfileDiff(before, after) {
   return lines.join('\n');
 }
 
+// /lover memory 的综合记忆视图：对话摘要 + 浏览画像 + 人格印象
+// 即使用户对话不足 6 轮，只要有浏览数据和画像，也能明确告诉他
+// "恋人已经从你的日常里感觉到了什么"
+function formatMemoryView({ lover, profile, conversation, browsingCount }) {
+  const name = lover?.name || '她';
+  const conv = conversation || {};
+  const sections = [];
+
+  sections.push(`# ${name} 记得关于你的这些事`);
+  sections.push('');
+
+  // —— Section 1: 对话里记下的具体事情（LLM 会话摘要）——
+  sections.push('## 💬 从对话里记住的');
+  if (conv.memorySummary) {
+    sections.push(conv.memorySummary);
+    const daysSince = conv.summaryLastUpdated
+      ? Math.floor((Date.now() - new Date(conv.summaryLastUpdated).getTime()) / 86400000)
+      : null;
+    const freshness = daysSince === null
+      ? '时间未知'
+      : daysSince === 0 ? '今天刚记下的' : `${daysSince} 天前记下的`;
+    sections.push('');
+    sections.push(`_（${freshness}，共 ${conv.sessionCount || 0} 次会话摘要）_`);
+  } else {
+    const msgs = conv.totalMessages || 0;
+    if (msgs === 0) {
+      sections.push('还没有对话记忆。用 `/lover talk` 开口聊几次，她会慢慢记住你说过的事。');
+    } else {
+      sections.push(`对话还不够（当前 ${msgs} 条消息，需要 6 轮完整对话才会生成跨会话摘要）。`);
+      sections.push('多聊几次 `/lover talk`，她会把重要的事情记在心里。');
+    }
+  }
+  sections.push('');
+
+  // —— Section 2: 从日常浏览里读出的你（核心：对话不足时也能显示）——
+  sections.push('## 🌐 从你的日常里感觉到的');
+  const bs = profile?.browsingSnapshot;
+  const count = typeof browsingCount === 'number' ? browsingCount : 0;
+  if (bs) {
+    const bullets = [];
+    if (bs.dominantDomain) {
+      const ratio = bs.dominantDomainRatio != null ? `（占 ${bs.dominantDomainRatio}%）` : '';
+      bullets.push(`你最常去 **${bs.dominantDomain}**${ratio}`);
+    }
+    if (bs.browsingStyle) {
+      const styleZh = { focused: '深度专注于少数站点', moderate: '相对集中但有广度', diverse: '多元探索型' }[bs.browsingStyle] || bs.browsingStyle;
+      bullets.push(`浏览风格：${styleZh}`);
+    }
+    if (Array.isArray(bs.topInterests) && bs.topInterests.length > 0) {
+      const tags = bs.topInterests.slice(0, 6).map(i => i.tag).join('、');
+      bullets.push(`你最关心的话题：${tags}`);
+    }
+    if (Array.isArray(bs.topCategories) && bs.topCategories.length > 0) {
+      const cats = bs.topCategories
+        .filter(c => c.percentage > 5)
+        .slice(0, 4)
+        .map(c => `${c.category} ${c.percentage}%`)
+        .join(' · ');
+      if (cats) bullets.push(`内容分类：${cats}`);
+    }
+    if (bullets.length > 0) {
+      bullets.forEach(b => sections.push(`- ${b}`));
+    } else {
+      sections.push(`已从 ${count} 条浏览记录里提取画像，但还没形成明确兴趣偏好。`);
+    }
+  } else if (count > 0) {
+    sections.push(`已同步 ${count} 条浏览数据，但还没跑过分析。`);
+    sections.push('运行 `/lover update`，让她把这些也"记住"。');
+  } else {
+    sections.push('还没有浏览数据。打开浏览器插件，或把 `Downloads/lover-data/browsing*.json` 放到位后跑 `/lover update`。');
+  }
+  sections.push('');
+
+  // —— Section 3: 对你的整体印象（核心画像关键条）——
+  if (profile) {
+    sections.push('## 💡 对你的整体印象');
+    const impression = [];
+    if (profile.attachmentStyle) {
+      const zh = ATTACHMENT_ZH[profile.attachmentStyle] || profile.attachmentStyle;
+      impression.push(`依恋类型偏 **${zh}**${profile.attachmentDescription ? ' —— ' + profile.attachmentDescription : ''}`);
+    }
+    if (profile.loveLanguages?.primary) {
+      const zh = LOVE_LANG_ZH[profile.loveLanguages.primary] || profile.loveLanguages.primary;
+      impression.push(`主要爱情语言：**${zh}**`);
+    }
+    if (profile.communicationStyle) {
+      const zh = COMM_STYLE_ZH[profile.communicationStyle] || profile.communicationStyle;
+      impression.push(`沟通风格：**${zh}**`);
+    }
+    if (impression.length > 0) {
+      impression.forEach(i => sections.push(`- ${i}`));
+    }
+    const ds = profile.dataSources || {};
+    const s = ds.conversationSessions ?? profile.sessionCount ?? 0;
+    const b = ds.browsingRecords ?? count;
+    const analyzedAt = profile.analyzedAt;
+    const daysAgo = analyzedAt
+      ? Math.floor((Date.now() - new Date(analyzedAt).getTime()) / 86400000)
+      : null;
+    const when = daysAgo === null
+      ? '分析时间未知'
+      : daysAgo === 0 ? '今天刚更新' : `${daysAgo} 天前更新`;
+    sections.push('');
+    sections.push(`_（基于 ${s} 个会话 + ${b} 条浏览，${when}）_`);
+  } else {
+    sections.push('## 💡 对你的整体印象');
+    sections.push('还没有正式画像。运行 `/lover update` 生成第一份。');
+  }
+
+  sections.push('');
+  sections.push('---');
+  sections.push('完整快照：`/lover whoami` | 刷新记忆：`/lover update` | 温暖版报告：`/lover report`');
+
+  return sections.join('\n');
+}
+
 module.exports = {
   formatProfileStructured,
   formatProfileDiff,
+  formatMemoryView,
   bar,
   relativeTime
 };

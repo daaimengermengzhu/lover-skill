@@ -292,20 +292,34 @@ async function handleRegenerate(args) {
 async function handleMemory(args, context) {
   const engine = require('./conversation-engine');
   const db = require('./db-manager');
+  const formatter = require('./profile-formatter');
+  const aggregator = require('./data-aggregator');
+  const analyzer = require('./persona-analyzer');
+
   const lover = db.loadLoverProfile();
-  const summary = engine.getHistorySummary();
-  if (!lover) return { text: '你还没有生成恋人。' };
-  if (!summary.memorySummary) {
-    return { text: lover.name + ' 还没有什么特别记住的事。\n多聊几次，她会慢慢记住你说过的事情。' };
+  if (!lover) return { text: '你还没有生成恋人。使用 `/lover setup` 开始。' };
+
+  let profile = db.loadUserProfile();
+  const readiness = aggregator.getDataReadiness();
+
+  // 如果用户已同步了不少浏览数据却还没画像，自动跑一次分析——
+  // 这样 /lover memory 不再只看对话摘要，能真实反映恋人"已知道的事"
+  if (!profile && readiness.browsingCount >= 10) {
+    const result = await analyzer.analyze();
+    if (result.status !== 'insufficient_data') {
+      profile = db.loadUserProfile();
+    }
   }
-  const daysSince = summary.summaryLastUpdated
-    ? Math.floor((Date.now() - new Date(summary.summaryLastUpdated)) / (1000 * 60 * 60 * 24))
-    : null;
-  return {
-    text: '## ' + lover.name + ' 记得这些事\n\n' + summary.memorySummary + '\n\n---\n最后更新：' +
-      (daysSince !== null ? (daysSince === 0 ? '今天' : daysSince + ' 天前') : '未知') +
-      '\n共 ' + (summary.sessionCount || 0) + ' 次对话会话 | 总计 ' + summary.totalMessages + ' 条消息'
-  };
+
+  const summary = engine.getHistorySummary();
+  const text = formatter.formatMemoryView({
+    lover,
+    profile,
+    conversation: summary,
+    browsingCount: readiness.browsingCount
+  });
+
+  return { text };
 }
 
 async function handleExport() {
